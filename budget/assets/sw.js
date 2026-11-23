@@ -1,7 +1,7 @@
 // Service worker бюджета.
 // ВАЖНО: при изменении style.css / app.js / chart.js обязательно поднимать CACHE_NAME,
 // иначе у установленной PWA останутся старые ассеты (стратегия cache-first).
-const CACHE_NAME = 'budget-v4';
+const CACHE_NAME = 'budget-v5';
 const ASSETS = [
   '/budget/',
   '/budget/assets/style.css',

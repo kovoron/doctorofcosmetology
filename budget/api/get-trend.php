@@ -20,8 +20,12 @@ $requested = (string) ($_GET['granularity'] ?? 'auto');
 $granularity = budgetGranularityAuto($period['start'], $period['fact_end'], $requested);
 $step = $granularity['effective'];
 
+// Явный выбор статей: параметр передан (даже пустой) — рисуем ровно то, что выбрано.
+// Параметра нет — рисуем все статьи.
+$hasSelection = isset($_GET['category_ids']);
+
 $selectedIds = [];
-if (isset($_GET['category_ids'])) {
+if ($hasSelection) {
     $raw = $_GET['category_ids'];
     if (is_string($raw)) {
         $raw = explode(',', $raw);
@@ -105,8 +109,8 @@ $pushSeries = function (string $key, ?int $categoryId, string $name, string $ico
     $total += $sum;
 };
 
-if ($selectedIds) {
-    // Пользователь выбрал конкретные статьи
+if ($hasSelection) {
+    // Явный выбор: только отмеченные статьи. Пустой выбор → пустой график.
     foreach ($selectedIds as $categoryId) {
         if (!isset($categoriesMeta[$categoryId]) && !isset($totals[$categoryId])) {
             continue;
@@ -115,39 +119,34 @@ if ($selectedIds) {
         $pushSeries('cat-' . $categoryId, $categoryId, $meta['name'], $meta['icon'], $byCategory[$categoryId] ?? []);
     }
 } else {
-    // Топ-N статей + «Прочее»
-    $limit = 6;
-    $top = array_slice($totals, 0, $limit, true);
-    $rest = array_slice($totals, $limit, null, true);
-
-    foreach ($top as $categoryId => $sum) {
+    // По умолчанию — все статьи, по которым есть операции в периоде
+    foreach ($totals as $categoryId => $sum) {
         $meta = $categoriesMeta[$categoryId] ?? ['name' => 'Категория ' . $categoryId, 'icon' => '?'];
         $pushSeries('cat-' . $categoryId, $categoryId, $meta['name'], $meta['icon'], $byCategory[$categoryId] ?? []);
-    }
-
-    if ($rest) {
-        $othersByBucket = [];
-        foreach ($rest as $categoryId => $sum) {
-            foreach ($byCategory[$categoryId] ?? [] as $i => $amount) {
-                $othersByBucket[$i] = ($othersByBucket[$i] ?? 0) + $amount;
-            }
-        }
-        $pushSeries('others', null, 'Прочее', '•••', $othersByBucket);
     }
 }
 
 // ==========================================
 // 4. ОТВЕТ
 // ==========================================
+// Чипы категорий: сначала те, у которых есть суммы, затем остальные (с нулём),
+// чтобы список статей был полным и ничего не «пропадало»
+$orderedTotals = $totals;
+foreach ($categoriesMeta as $categoryId => $meta) {
+    if (!isset($orderedTotals[$categoryId])) {
+        $orderedTotals[$categoryId] = 0.0;
+    }
+}
+
 $categoriesOut = [];
-foreach ($totals as $categoryId => $sum) {
+foreach ($orderedTotals as $categoryId => $sum) {
     $meta = $categoriesMeta[$categoryId] ?? ['name' => 'Категория ' . $categoryId, 'icon' => '?'];
     $categoriesOut[] = [
         'id' => $categoryId,
         'name' => $meta['name'],
         'icon' => $meta['icon'],
-        'total' => round($sum, 2),
-        'selected' => in_array($categoryId, $selectedIds, true),
+        'total' => round((float) $sum, 2),
+        'selected' => $hasSelection ? in_array($categoryId, $selectedIds, true) : true,
     ];
 }
 
@@ -164,6 +163,8 @@ echo json_encode([
         'end' => budgetPrevPeriod($period['start'], $period['fact_end'])['end'],
     ],
     'type' => $type,
+    'all_selected' => !$hasSelection,
+    'selection_empty' => $hasSelection && !$selectedIds,
     'granularity' => $granularity,
     'buckets' => $buckets,
     'series' => $series,

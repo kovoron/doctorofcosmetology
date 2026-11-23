@@ -51,14 +51,17 @@ document.querySelector('.form input[name="amount"]')?.focus();
     const typeTabs = document.querySelector('[data-role="type"]');
     const granTabs = document.querySelector('[data-role="granularity"]');
 
-    const state = { type: 'expense', granularity: 'auto', selected: [] };
+    // explicit = пользователь сам трогал чипы: тогда рисуем ровно выбранное,
+    // в том числе пустой набор (пустой график). false = «все статьи».
+    const state = { type: 'expense', granularity: 'auto', selected: [], explicit: false };
     let loading = false;
 
     function buildUrl() {
         const params = new URLSearchParams(base);
         params.set('type', state.type);
         params.set('granularity', state.granularity);
-        if (state.selected.length) {
+        if (state.explicit) {
+            // Пустой список тоже передаём: сервер нарисует пустой график
             params.set('category_ids', state.selected.join(','));
         }
         return 'api/get-trend.php?' + params.toString();
@@ -94,7 +97,7 @@ document.querySelector('.form input[name="amount"]')?.focus();
             categoriesEl.appendChild(chip);
         });
 
-        if (state.selected.length) {
+        if (state.explicit) {
             const reset = document.createElement('button');
             reset.type = 'button';
             reset.className = 'chip';
@@ -176,6 +179,7 @@ document.querySelector('.form input[name="amount"]')?.focus();
             }
             state.type = button.dataset.type;
             state.selected = [];
+            state.explicit = false;
             typeTabs.querySelectorAll('[data-type]').forEach(item => item.classList.toggle('active', item === button));
             load();
         });
@@ -196,7 +200,9 @@ document.querySelector('.form input[name="amount"]')?.focus();
     if (categoriesEl) {
         categoriesEl.addEventListener('click', event => {
             if (event.target.closest('[data-reset]')) {
+                // «Сбросить» = вернуть режим «все статьи»
                 state.selected = [];
+                state.explicit = false;
                 load();
                 return;
             }
@@ -214,6 +220,7 @@ document.querySelector('.form input[name="amount"]')?.focus();
             } else {
                 state.selected.splice(position, 1);
             }
+            state.explicit = true;
             load();
         });
     }

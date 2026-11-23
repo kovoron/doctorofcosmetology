@@ -11,7 +11,10 @@
     'use strict';
 
     var NS = 'http://www.w3.org/2000/svg';
-    var PALETTE = ['#8B7355', '#2E7D32', '#1565C0', '#C62828', '#6A1B9A', '#EF6C00', '#00838F', '#9E9D24'];
+    var PALETTE = [
+        '#8B7355', '#2E7D32', '#1565C0', '#C62828', '#6A1B9A', '#EF6C00',
+        '#00838F', '#9E9D24', '#5D4037', '#0277BD', '#AD1457', '#558B2F'
+    ];
 
     var HEIGHT = 240;
     var PAD = { left: 46, right: 12, top: 12, bottom: 26 };
@@ -73,6 +76,11 @@
         var series = (data.series || []).filter(function (item) {
             return item.values && item.values.length > 0;
         });
+
+        if (data.selection_empty) {
+            emptyState(container, 'Статьи не выбраны — отметьте хотя бы одну');
+            return;
+        }
 
         if (!buckets.length || !series.length) {
             emptyState(container, 'Нет операций за выбранный период');
