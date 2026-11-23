@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /budget/
+Disallow: /*?*
+
+Sitemap: https://doctorofcosmetology.ru/sitemap.php

@@ -1,0 +1,748 @@
+/* =========================================
+   HEADER (FIXED)
+   ========================================= */
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    padding: 30px 60px;
+    background: transparent;
+    transition: all 0.3s ease;
+}
+
+.header--scrolled {
+    background: rgba(255, 255, 255, 0.98);
+    padding: 20px 60px;
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.05);
+}
+
+.header__container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header__logo {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    text-decoration: none;
+}
+
+.header__logo-icon {
+    width: 50px;
+    height: 50px;
+    border: 2px solid #8B7355;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: #8B7355;
+    transition: all 0.3s ease;
+}
+
+.header__logo:hover .header__logo-icon {
+    background: #8B7355;
+    color: #fff;
+}
+
+.header__logo-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.header__logo-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: #2C2420;
+    line-height: 1.2;
+}
+
+.header__logo-subtitle {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 11px;
+    color: #8B7355;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.header__nav {
+    display: flex;
+    gap: 40px;
+}
+
+.header__link {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #2C2420;
+    text-decoration: none;
+    transition: color 0.3s ease;
+    position: relative;
+}
+
+.header__link::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: #8B7355;
+    transition: width 0.3s ease;
+}
+
+.header__link:hover {
+    color: #8B7355;
+}
+
+.header__link:hover::after {
+    width: 100%;
+}
+
+.header__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 28px;
+    background: #8B7355;
+    color: #fff;
+    border-radius: 30px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.header__btn:hover {
+    background: #6B5642;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(139, 115, 85, 0.3);
+}
+
+.header__btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.header__burger {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+}
+
+.header__burger span {
+    width: 25px;
+    height: 2px;
+    background: #2C2420;
+    transition: all 0.3s ease;
+}
+
+
+
+/* Mobile Menu */
+.mobile-menu {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 100%;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    transition: right 0.3s ease;
+}
+
+.mobile-menu.active {
+    right: 0;
+}
+
+.mobile-menu__close {
+    position: absolute;
+    top: 30px;
+    right: 30px;
+    width: 50px;
+    height: 50px;
+    border: 2px solid #8B7355;
+    border-radius: 50%;
+    background: transparent;
+    color: #8B7355;
+    font-size: 30px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-menu__link {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #2C2420;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.mobile-menu__link:hover {
+    color: #8B7355;
+}
+
+.mobile-menu__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 32px;
+    background: #8B7355;
+    color: #fff;
+    border-radius: 30px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-decoration: none;
+    margin-top: 20px;
+}
+
+/* =========================================
+   HERO SECTION (REDESIGNED)
+   ========================================= */
+.hero {
+    position: relative;
+    width: 100%;
+    min-height: 100vh; /* Высота на весь экран */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    background-color: #F5F1ED; /* Цвет фона на случай если картинка не прогрузится */
+}
+
+/* Фоновое изображение: строго от края до края, без скруглений */
+.hero__bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+.hero__bg-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center right; /* Чтобы врач был справа */
+    border-radius: 0; /* Гарантия отсутствия скруглений */
+}
+
+/* Затемнение градиентом для читаемости текста */
+.hero__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Градиент от светлого бежевого слева к прозрачному справа */
+    background: linear-gradient(90deg, rgba(245, 241, 237, 0.95) 0%, rgba(245, 241, 237, 0.7) 40%, rgba(245, 241, 237, 0.1) 100%);
+    z-index: 1;
+}
+
+/* Контент сверху */
+.hero__container {
+    position: relative;
+    z-index: 2;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 150px 60px 40px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end; /* Врач справа, текст слева */
+    gap: 40px;
+}
+
+.hero__content {
+    max-width: 600px;
+}
+
+/* Заголовок */
+.hero__title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 64px;
+    font-weight: 400;
+    line-height: 1.1;
+    color: #2C2420;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* Подзаголовок */
+.hero__subtitle {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 16px;
+    font-weight: 300;
+    line-height: 1.8;
+    color: #5A4A42;
+    margin-bottom: 50px;
+}
+
+/* Кнопка */
+.hero__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 40px;
+    border: 1px solid #8B7355;
+    border-radius: 50px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #8B7355;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.4); /* Легкая подложка */
+    backdrop-filter: blur(5px);
+}
+
+.hero__btn:hover {
+    background: #8B7355;
+    color: #fff;
+}
+
+/* =========================================
+   FIX: DOCTOR INFO POSITION & COLOR
+   ========================================= */
+.hero__doctor-info {
+    position: absolute;
+    bottom: 40px;
+    right: 140px; /* Вернули внутрь видимой области */
+    background: rgba(255, 255, 255, 0.5); /* Легкая подложка для читаемости (опционально) */
+    backdrop-filter: blur(5px);
+    padding: 20px 30px;
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: right; /* Текст выровнен по правому краю, как на макете */
+}
+
+.hero__doctor-name {
+    display: block;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 24px; /* Немного уменьшили, чтобы влезало */
+    font-weight: 600;
+    color: #000000 !important; /* Форсируем белый цвет */
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Легкая тень для контраста */
+}
+
+.hero__doctor-position {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    color: #8B7355 !important; /* Форсируем белый цвет */
+    line-height: 1.5;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.9; /* Слегка приглушаем, чтобы имя было главнее */
+}
+
+/* Адаптив для планшетов и мобильных */
+@media (max-width: 1024px) {
+    .hero__doctor-info {
+        right: 20px; /* Еще ближе к краю, но внутри */
+        bottom: 20px;
+        padding: 15px 20px;
+    }
+    
+    .hero__doctor-name {
+        font-size: 20px;
+    }
+    
+    .hero__doctor-position {
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 768px) {
+    /* На мобильном можно перенести инфо под фото или в центр, 
+       но если нужно оставить на фото: */
+    .hero__doctor-info {
+        position: relative; /* Убираем абсолютное позиционирование */
+        right: auto;
+        bottom: auto;
+        background: transparent;
+        border: none;
+        padding: 20px 0;
+        text-align: center; /* Центрируем на мобилке */
+        backdrop-filter: none;
+    }
+
+    .hero__doctor-name, 
+    .hero__doctor-position {
+        text-shadow: none;
+        color: #2C2420; /* На мобильном фон часто светлый, лучше вернуть темный или оставить белый если фон темный */
+    }
+}
+
+/* Нижняя панель с 4 колонками */
+.hero__features {
+    position: relative;
+    z-index: 2;
+    background: #FFFFFF;
+    border-radius: 30px 30px 0 0; /* Скругление только сверху */
+    padding: 60px 60px;
+    margin-top: auto; /* Прижимаем к низу */
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.05);
+}
+
+.features__container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 40px;
+}
+
+.feature {
+    text-align: center;
+    padding: 20px;
+    border-right: 1px solid rgba(139, 115, 85, 0.2);
+}
+
+.feature:last-child {
+    border-right: none;
+}
+
+.feature__icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.feature__icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.feature__title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #2C2420;
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+.feature__desc {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 300;
+    color: #5A4A42;
+    line-height: 1.6;
+}
+
+/* =========================================
+   RESPONSIVE (MOBILE)
+   ========================================= */
+@media (max-width: 1024px) {
+    .hero__container {
+        padding: 120px 30px 40px;
+    }
+    
+    .hero__title {
+        font-size: 48px;
+    }
+    
+    .hero__doctor-info {
+        display: none; /* Скрываем информацию о враче на планшете */
+    }
+
+    .features__container {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 30px;
+    }
+
+    .feature {
+        border-right: none;
+        border-bottom: 1px solid rgba(139, 115, 85, 0.2);
+        padding-bottom: 30px;
+    }
+
+    .feature:nth-child(2n) {
+        border-bottom: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .hero {
+        min-height: auto;
+        padding-bottom: 0;
+    }
+
+    .hero__bg {
+        position: relative;
+        height: 50vh; /* На мобильном фото занимает половину экрана */
+    }
+
+    .hero__overlay {
+        background: linear-gradient(180deg, rgba(245, 241, 237, 0.4) 0%, rgba(245, 241, 237, 1) 80%);
+    }
+
+    .hero__container {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 0 20px 40px;
+        margin-top: -60px; /* Заезжаем на фото */
+    }
+
+    .hero__content {
+        max-width: 100%;
+    }
+
+    .hero__title {
+        font-size: 36px;
+        margin-bottom: 20px;
+    }
+
+    .hero__subtitle {
+        font-size: 14px;
+        margin-bottom: 30px;
+    }
+
+    .hero__btn {
+        width: 100%;
+        justify-content: center;
+        background: #8B7355;
+        color: #fff;
+    }
+
+    .hero__features {
+        padding: 40px 20px;
+        border-radius: 20px 20px 0 0;
+    }
+
+    .features__container {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+
+    .feature {
+        border-bottom: 1px solid rgba(139, 115, 85, 0.2);
+        padding-bottom: 20px;
+        text-align: left;
+        display: flex;
+        align-items: flex-start;
+        gap: 20px;
+        padding: 0;
+    }
+
+    .feature:last-child {
+        border-bottom: none;
+    }
+
+    .feature__icon {
+        margin: 0;
+        min-width: 48px;
+    }
+
+    .feature__text {
+        text-align: left;
+    }
+    
+    .feature__title {
+        margin-bottom: 5px;
+    }
+}
+
+
+/* =========================================
+   SECTIONS (РАЗДЕЛЫ)
+   ========================================= */
+.sections {
+    padding: 100px 0;
+    background: #F5F1ED;
+}
+
+.sections__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+}
+
+.section-card {
+    position: relative;
+    display: block;
+    height: 500px;
+    border-radius: 20px;
+    overflow: hidden;
+    text-decoration: none;
+    transition: transform 0.3s ease;
+}
+
+.section-card:hover {
+    transform: translateY(-8px);
+}
+
+.section-card__image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.section-card__image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.section-card:hover .section-card__image img {
+    transform: scale(1.05);
+}
+
+.section-card__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, rgba(44, 36, 32, 0.2) 0%, rgba(44, 36, 32, 0.7) 100%);
+    transition: background 0.3s ease;
+}
+
+.section-card:hover .section-card__overlay {
+    background: linear-gradient(180deg, rgba(44, 36, 32, 0.3) 0%, rgba(44, 36, 32, 0.85) 100%);
+}
+
+.section-card__content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 40px 30px;
+    z-index: 2;
+}
+
+/* ЕДИНЫЙ СТИЛЬ ТЕКСТА ДЛЯ ВСЕХ КАРТОЧЕК */
+.section-card__title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 24px;
+    font-weight: 600;
+    color: #FFFFFF;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    line-height: 1.3;
+}
+
+.section-card__desc {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.section-card__arrow {
+    width: 44px;
+    height: 44px;
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    transition: all 0.3s ease;
+}
+
+.section-card:hover .section-card__arrow {
+    background: #FFFFFF;
+    color: #2C2420;
+    border-color: #FFFFFF;
+    transform: translateX(4px);
+}
+
+.section-card__arrow svg {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.3s ease;
+}
+
+.section-card:hover .section-card__arrow svg {
+    transform: translateX(2px);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .sections__grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .section-card {
+        height: 400px;
+    }
+}
+
+@media (max-width: 768px) {
+    .sections {
+        padding: 60px 0;
+    }
+    
+    .sections__grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .section-card {
+        height: 350px;
+    }
+    
+    .section-card__content {
+        padding: 30px 24px;
+    }
+    
+    .section-card__title {
+        font-size: 22px;
+    }
+    
+    .section-card__desc {
+        font-size: 13px;
+    }
+}
+

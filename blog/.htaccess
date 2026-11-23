@@ -1,0 +1,7 @@
+RewriteEngine On
+
+# Только ЧПУ, без HTTPS-редиректа (проверьте сначала это)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/blog/post\.php [NC]
+RewriteRule ^([0-9]{5})/?$ post.php?id=$1 [L,QSA]

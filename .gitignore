@@ -1,0 +1,25 @@
+# Локальные данные и дампы БД
+/data/
+/dump.sql
+*.sql
+*.sql.gz
+
+# Секреты: файлы конфигурации живут вне проекта/вне docroot
+/.doctorofcosmetology.local.php
+/.doctorofcosmetology.prod.php
+
+# Персональные данные клиентов — не коммитим и не деплоим
+/q/questions/
+/q/images/
+
+# Контент, который живёт только на проде (деплой его не трогает).
+# Исключение по требованию — /blog/: его JSON и картинки коммитятся и деплоятся.
+/portfolio/cases/
+/portfolio/images/
+/uslugi.json
+
+# Служебный мусор
+.DS_Store
+*.log
+*.lock
+*.bak-*
