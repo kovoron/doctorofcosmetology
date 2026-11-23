@@ -7,7 +7,18 @@
 
 require_once __DIR__ . '/env.php';
 
-loadExternalConfig();
+// На проде отсутствие внешнего конфига не должно ронять весь сайт:
+// аналитика и SITE_URL имеют безопасные значения по умолчанию.
+// Локально отсутствие конфига — ошибка (иначе легко получить «тихую» неверную конфигурацию).
+if (siteIsProduction()) {
+    try {
+        loadExternalConfig();
+    } catch (RuntimeException $e) {
+        error_log('site config: ' . $e->getMessage());
+    }
+} else {
+    loadExternalConfig();
+}
 
 if (!defined('APP_ENV')) {
     define('APP_ENV', siteIsProduction() ? 'production' : 'local');
