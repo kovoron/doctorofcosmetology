@@ -215,16 +215,31 @@
             cursor.setAttribute('x2', cx);
             cursor.style.display = '';
 
+            // В тултип попадают только статьи с ненулевой суммой в этом бакете:
+            // иначе на дневном шаге список тонет в нулях
             var rows = series
                 .map(function (item, seriesIndex) {
-                    var color = PALETTE[seriesIndex % PALETTE.length];
+                    return { item: item, index: seriesIndex, value: item.values[index] || 0 };
+                })
+                .filter(function (row) {
+                    return row.value > 0;
+                })
+                .sort(function (a, b) {
+                    return b.value - a.value;
+                })
+                .map(function (row) {
+                    var color = PALETTE[row.index % PALETTE.length];
                     return '<div class="chart__tooltip-row">'
                         + '<span class="chart__dot" style="background:' + color + '"></span>'
-                        + '<span class="chart__tooltip-name">' + escapeHtml(item.name) + '</span>'
-                        + '<span class="chart__tooltip-value">' + fmtFull(item.values[index] || 0) + '</span>'
+                        + '<span class="chart__tooltip-name">' + escapeHtml(row.item.name) + '</span>'
+                        + '<span class="chart__tooltip-value">' + fmtFull(row.value) + '</span>'
                         + '</div>';
                 })
                 .join('');
+
+            if (!rows) {
+                rows = '<div class="chart__tooltip-row chart__tooltip-empty">Нет операций</div>';
+            }
 
             tooltip.innerHTML = '<div class="chart__tooltip-title">'
                 + escapeHtml(buckets[index].label_full || buckets[index].label) + '</div>' + rows;

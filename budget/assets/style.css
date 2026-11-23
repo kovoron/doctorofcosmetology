@@ -812,6 +812,10 @@ body {
     display: inline-block;
 }
 
+.chart__tooltip-empty {
+    color: var(--text-secondary);
+}
+
 .trend__legend {
     display: flex;
     flex-wrap: wrap;
