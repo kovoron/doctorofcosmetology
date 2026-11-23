@@ -9,6 +9,10 @@ session_start();
 require_once __DIR__ . '/../config/env.php';
 loadExternalConfig();
 
+// Единая таймзона: PHP на хостинге настроен на UTC, а владелец бюджета живёт в MSK.
+// Без этого «сегодня», «текущий месяц» и сравнение периодов смещаются на 3 часа.
+date_default_timezone_set(appTimezone());
+
 foreach (['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS'] as $requiredConstant) {
     if (!defined($requiredConstant)) {
         throw new RuntimeException(sprintf(
@@ -33,6 +37,8 @@ function getDB() {
             PDO::ATTR_EMULATE_PREPARES => false,
         ];
         $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+        // Сессия MySQL считает CURDATE()/DATE(created_at) в той же зоне, что и PHP.
+        $pdo->exec('SET time_zone = ' . $pdo->quote(dbTimezone()));
     }
     return $pdo;
 }

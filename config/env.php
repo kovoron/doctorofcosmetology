@@ -19,6 +19,29 @@ if (!function_exists('siteIsProduction')) {
     }
 }
 
+if (!function_exists('appTimezone')) {
+    /**
+     * Часовой пояс приложения (PHP-функции date()/strtotime()).
+     * По умолчанию — московское время: в нём живёт владелец бюджета,
+     * а PHP на хостинге настроен на UTC.
+     */
+    function appTimezone(): string
+    {
+        return defined('APP_TIMEZONE') ? APP_TIMEZONE : 'Europe/Moscow';
+    }
+}
+
+if (!function_exists('dbTimezone')) {
+    /**
+     * Смещение часового пояса для сессии MySQL: нужно, чтобы CURDATE()
+     * и DATE(created_at) считались в той же зоне, что и PHP.
+     */
+    function dbTimezone(): string
+    {
+        return defined('DB_TIMEZONE') ? DB_TIMEZONE : '+03:00';
+    }
+}
+
 if (!function_exists('loadExternalConfig')) {
     function loadExternalConfig(): void
     {

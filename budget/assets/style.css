@@ -625,3 +625,303 @@ body {
 .shopping-history {
     padding: 20px;
 }
+
+/* ===== Анализ: подписи периодов и дельта ===== */
+.period-caption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: baseline;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 12px;
+}
+
+.period-caption__vs {
+    font-size: 12px;
+    opacity: 0.85;
+}
+
+.card__diff {
+    font-size: 12px;
+    margin-top: 6px;
+    font-weight: 600;
+}
+
+.card__delta {
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+/* ===== Анализ: динамика по статьям ===== */
+.trend {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    margin: 20px 0;
+}
+
+.trend__controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+/* Переопределяем sticky из общего .tabs: здесь это локальные переключатели */
+.trend__tabs {
+    position: static;
+    top: auto;
+    z-index: auto;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg);
+}
+
+.trend__tabs .tab {
+    padding: 10px 6px;
+    font-size: 13px;
+    border: none;
+    border-bottom: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.trend__tabs .tab.active {
+    background: var(--surface);
+    color: var(--primary);
+    box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+.trend__categories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg);
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.chip--active {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--surface);
+}
+
+.chip__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.trend__chart {
+    position: relative;
+    min-height: 240px;
+}
+
+.chart__svg {
+    display: block;
+    overflow: visible;
+    touch-action: pan-y;
+}
+
+.chart__grid {
+    stroke: var(--border);
+    stroke-width: 1;
+}
+
+.chart__axis {
+    stroke: var(--text-secondary);
+    stroke-width: 1;
+    opacity: 0.5;
+}
+
+.chart__ylabel,
+.chart__xlabel {
+    font-size: 10px;
+    fill: var(--text-secondary);
+}
+
+.chart__cursor {
+    stroke: var(--primary);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    opacity: 0.6;
+}
+
+.chart__tooltip {
+    position: absolute;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 12px;
+    pointer-events: none;
+    min-width: 150px;
+    z-index: 5;
+}
+
+.chart__tooltip-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.chart__tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.6;
+}
+
+.chart__tooltip-name {
+    flex: 1;
+    color: var(--text-secondary);
+}
+
+.chart__tooltip-value {
+    font-weight: 600;
+}
+
+.chart__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.trend__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.legend-item__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.legend-item__sum {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.trend__note {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    min-height: 14px;
+}
+
+/* ===== Правка транзакции ===== */
+.transaction-item--editable {
+    cursor: pointer;
+}
+
+.transaction-item--editable:active {
+    background: var(--bg);
+}
+
+.transaction-item__hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: none;
+}
+
+.sheet--open {
+    display: block;
+}
+
+.sheet__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(44, 36, 32, 0.45);
+}
+
+.sheet__panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 20px;
+    max-height: 88vh;
+    overflow-y: auto;
+    animation: sheet-up 0.2s ease-out;
+}
+
+@keyframes sheet-up {
+    from { transform: translateY(24px); opacity: 0.6; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.sheet__title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sheet__close {
+    background: none;
+    border: none;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.sheet__error {
+    color: var(--expense);
+    font-size: 13px;
+    margin-bottom: 10px;
+    min-height: 18px;
+}
+
+.sheet .categories {
+    max-height: 40vh;
+    overflow-y: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sheet__panel { animation: none; }
+}

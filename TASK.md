@@ -270,3 +270,159 @@ ssh doctorofcosmetology-prod "ls -la ~/www; php -v | head -1; git --version; whi
 6. Счётчик Метрики `109925540` срабатывает на локальных страницах — отключается флагом `METRIKA_ENABLED` в шаге 3.2.
 7. У блога нет админки: контент правится файлами; после перехода на git-деплой источник истины — репозиторий.
 8. S1 не удаляет с прода файлы, убранные из репозитория — нужен ручной контроль.
+9. **PHP на проде и локально работает в UTC, а MySQL — в MSK** (`date_default_timezone_get()` → `UTC`; `SELECT NOW()` → 17:13 при `UTC_TIMESTAMP()` → 14:13). Прямо ломает и «сравнение на текущую дату», и «правку до конца текущего дня». Исправляется в шаге 1 раздела 7.
+10. **`budget/assets/sw.js` кэширует `style.css`/`app.js` по стратегии cache-first с именем `budget-v1`** — без bump'а версии кэша новые ассеты не дойдут до установленной PWA. Исправляется в шаге 8 раздела 7.
+
+---
+
+## 7. Этап 2 — переработка `/budget/` (анализ + правка транзакций)
+
+### 7.0 Статус реализации (2026-11-23, ветка `develop`)
+
+Реализовано и проверено локально:
+- **таймзона**: `appTimezone()`/`dbTimezone()` в [`config/env.php`](config/env.php:22), `date_default_timezone_set()` + `SET time_zone` в [`budget/config.php`](budget/config.php:12); проверка `PHP tz Europe/Moscow`, `MySQL +03:00`, `CURDATE()` = `date('Y-m-d')`;
+- **периоды**: [`budget/lib/periods.php`](budget/lib/periods.php:1) — CLI-проверки: `1–23 ноя → 1–23 окт`, `1–31 окт → 1–30 сен`, `1 янв–23 ноя → 1 янв–23 ноя 2025`, `31 мар → 28 фев`;
+- **«Анализ»**: [`budget/analytics.php`](budget/analytics.php:1) переписан (дубль запроса убран, Δ% и Δ₽, бейдж «данные по 23 ноя», подпись `vs 1–23 окт 2026`);
+- **графики**: [`budget/api/get-trend.php`](budget/api/get-trend.php:1) — сумма серий равна прямому SQL (`841 099 ₽` за 2026), `day` по году → автопонижение до `week` (48 точек, `downgraded=1`), `month` по году → 11 месяцев данных, выбор статей через `category_ids`;
+- **рендер**: [`budget/assets/chart.js`](budget/assets/chart.js:1) + стили в [`budget/assets/style.css`](budget/assets/style.css:628);
+- **правка операции**: [`budget/index.php`](budget/index.php:1) (data-атрибуты, `can_edit`, bottom-sheet), [`budget/api/update-transaction.php`](budget/api/update-transaction.php:1), [`budget/assets/app.js`](budget/assets/app.js:1); проверено: `200` для своей сегодняшней, `403` вчерашняя и без CSRF, `404` чужая, `422` будущая дата / нулевая сумма / недоступная категория;
+- **CSRF + валидация** в [`budget/api/add-transaction.php`](budget/api/add-transaction.php:1);
+- **SW**: [`budget/assets/sw.js`](budget/assets/sw.js:1) → `budget-v2`, `skipWaiting`, очистка старых кэшей, network-first для навигации и `/budget/api/`;
+- **чистка**: удалён [`budget/api/get-analytics.php`](budget/api/get-analytics.php:1) (мёртвый, с неверным JOIN).
+
+Тестовые транзакции из локальной БД удалены — 860 записей, как в дампе прода.
+
+### 7.1 Контекст (проверено по коду и данным)
+
+**Что есть сейчас в «Анализе»** — [`budget/analytics.php`](budget/analytics.php:1), серверный рендер, без AJAX:
+- фильтры `current_month / last_month / current_year / last_year / custom` ([`analytics.php:12`](budget/analytics.php:12)), кастомный диапазон — обычный GET-сабмит ([`analytics.php:122`](budget/analytics.php:122));
+- «прошлый период» считается по длине в секундах со сдвигом на день: [`analytics.php:47`](budget/analytics.php:47) → для 1–30 ноя получается **2–31 окт**, а на середине месяца (1–23 ноя) сравнивается с 1–22 окт целиком, т.е. сопоставление некорректно;
+- один и тот же агрегат запрашивается дважды — [`analytics.php:36`](budget/analytics.php:36) и [`analytics.php:64`](budget/analytics.php:64) (первый блок мёртвый);
+- разбивка по категориям корректна (COALESCE по типу, [`analytics.php:79`](budget/analytics.php:79)), но выводится списком без динамики;
+- стили карточек заданы инлайном ([`analytics.php:134`](budget/analytics.php:134)), хотя в [`budget/assets/style.css`](budget/assets/style.css:80) уже есть готовые `.card__period`, `.card__diff`, `.diff-up`, `.diff-down`, `.comparison-cards`, `.custom-range`, `.tabs/.tab`.
+
+**Что есть рядом и не используется:**
+- [`budget/api/get-analytics.php`](budget/api/get-analytics.php:1) — джойнит только `income_categories` ([`get-analytics.php:43`](budget/api/get-analytics.php:43)), поэтому расходы в разбивке будут безымянными; при этом ни [`budget/assets/app.js`](budget/assets/app.js:1) (34 строки, только SW + выбор категории), ни страницы его не вызывают — мёртвый и битый;
+- [`budget/api/get-dashboard.php`](budget/api/get-dashboard.php:1) — дубль серверной логики [`budget/index.php`](budget/index.php:12), тоже не вызывается;
+- [`budget/api/add-transaction.php`](budget/api/add-transaction.php:12) — JSON-insert **без CSRF** и без проверки, что `category_id` принадлежит нужной таблице и доступен пользователю.
+
+**Данные (локальная копия прода):** 860 транзакций, диапазон `2026-07-27 … 2026-11-23`; `expense` 662 / `income` 198; по месяцам: июль 8, август 268, сентябрь 219, октябрь 218, ноябрь 147. Категорий: 28 расходных, 14 доходных, часть глобальные (`user_id IS NULL`), часть пользовательские; **id в двух таблицах пересекаются** — любой JOIN по `category_id` без условия `type` даст ложные имена.
+
+**Схема `transactions`:** `id`, `user_id`, `type ENUM('income','expense')`, `amount DECIMAL(10,2)`, `category_id`, `description TEXT`, `transaction_date DATE`, `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`. FK только на `budget_users`; FK на категории нет; поля аудита правок нет.
+
+**Таймзоны:** PHP — `UTC`, MySQL — `SYSTEM` = MSK (и локально, и на проде).
+
+### 7.2 Решения
+
+**A. Фундамент: единая таймзона (без этого пункты 1 и 3 неверны).**
+- `APP_TIMEZONE` (по умолчанию `Europe/Moscow`) — в [`config/env.php`](config/env.php:1) как дефолт + переопределение в локальном/прод-конфиге; [`deploy/prod-config.example.php`](deploy/prod-config.example.php:1) дополнить.
+- В [`budget/config.php`](budget/config.php:2) сразу после загрузки конфига: `date_default_timezone_set(APP_TIMEZONE)`.
+- В `getDB()` — `$pdo->exec("SET time_zone = '" . DB_TIMEZONE_OFFSET . "'")` (например `+03:00`), чтобы `created_at`/`CURDATE()` и PHP считали одинаково.
+- Без миграции данных: `transaction_date` — это `DATE`, его не трогаем; `created_at` — `TIMESTAMP`, значения уже в UTC и отображаются в TZ сессии, пересчёт не нужен.
+
+**B. Сравнение с прошлым периодом «на ту же дату».**
+- Факт-окно: `fact_end = min(end_date, today)`; если `end_date > today` → показываем бейдж «период не завершён: 1–23 ноя».
+- Предыдущее окно: `prev_start = start_date - 1 месяц` (для year-фильтров — `- 1 год`); `prev_end = min(prev_start + (дней в факт-окне − 1), последний день месяца prev_start)`. Проверка: 1–23 ноя → 1–23 окт; 1–31 окт (закрытый) → 1–30 сен; 1 янв–23 ноя (год) → 1 янв–23 ноя прошлого года.
+- Показываем и Δ%, и Δ в рублях; при `prev = 0` процент не считаем (выводим «—», чтобы не делить на ноль). Цвет: рост дохода — зелёный, рост расхода — красный, падение — наоборот (логика уже такая в [`analytics.php:134`](budget/analytics.php:134)).
+- Подпись под карточками: «1–23 ноя 2026 vs 1–23 окт 2026».
+
+**C. Графики динамики по статьям.**
+- Отдельный JSON-эндпоинт [`budget/api/get-trend.php`](budget/api/get-trend.php) (GET, `requireAuth()`), параметры: `filter|start|end`, `type=expense|income`, `granularity=day|week|month`, `category_ids[]` (опционально).
+- Ответ: `{ period:{start,end,fact_end,incomplete}, granularity, granularity_effective, was_downgraded, buckets:[{key,label,start,end}], series:[{category_id,name,icon,total,values:[]}], total }`.
+- Бакеты строит PHP и **заполняет нулями** (в SQL только группировка `SUM(amount)`): день — `DATE(transaction_date)`; неделя — `DATE_SUB(transaction_date, INTERVAL WEEKDAY(transaction_date) DAY)` (ISO, начало с понедельника), метка `нед. 21–27 окт`; месяц — `DATE_FORMAT(transaction_date, '%Y-%m-01')`, метка `окт 26`.
+- Автоограничение точек: `day` ≤ 62 точки, `week` ≤ 78, `month` ≤ 36; при превышении понижаем шаг и возвращаем `was_downgraded` (фронт показывает «шаг изменён автоматически»). Для «год по месяцам» — 12 точек.
+- Серии: топ-6 категорий по сумме за период + «Прочее», тип переключается (доходы/расходы отдельно — суммы по типам не складываем).
+- Отрисовка — свой минимальный SVG-модуль [`budget/assets/chart.js`](budget/assets/chart.js) (линии + точки, оси, подписи с прореживанием, тултип по тапу/hover, `prefers-reduced-motion`). **Не** Chart.js с CDN: PWA работает офлайн, внешняя зависимость и Composer в проекте отсутствуют.
+- Стили графика и модалки — дописать в [`budget/assets/style.css`](budget/assets/style.css:1), переиспользуя существующие переменные (`var(--income)`, `var(--expense)`, `var(--border)`, `var(--surface)`).
+
+**D. Правка транзакции с главной.**
+- Окно правки: `DATE(created_at) = CURDATE()` (серверное время в MSK после шага A) — «до конца текущего дня после ввода». Альтернатива «по `transaction_date`» отклонена: тогда нельзя исправить сегодняшнюю операцию, задним числом введённую за вчера.
+- UI: клик по `.transaction-item` открывает bottom-sheet с формой (сумма, категория, описание, дата ≤ сегодня). Элемент получает `data-id`/`data-editable="1"` только если сервер подтвердил окно; вне окна клик не активен и есть подпись «изменить можно только в день создания».
+- Сохранение — новый [`budget/api/update-transaction.php`](budget/api/update-transaction.php): JSON POST, CSRF в заголовке `X-CSRF-Token` (использовать существующие [`csrfToken()`](budget/config.php:43) / [`verifyCsrf()`](budget/config.php:50)), условия: `WHERE id = ? AND user_id = ?` + повторная серверная проверка `DATE(created_at) = CURDATE()`; `type` не меняется; `category_id` валидируется по своей таблице и доступности (`user_id IS NULL OR user_id = ?`); `amount > 0`; `transaction_date` не в будущем.
+- Удаление транзакций в этот этап **не** входит (не запрошено) — только правка.
+- Аудит без миграции: каждая правка пишется строкой в `error_log()` с `id`, старыми/новыми значениями и `user_id`. Вариант с колонкой `updated_at` (`ALTER TABLE … ADD COLUMN updated_at TIMESTAMP NULL`) — опционально, требует DDL на проде и бэкапа; по умолчанию не делаем.
+
+**E. Попутные исправления (иначе фича «не сойдётся»):**
+- [`budget/index.php`](budget/index.php:27) — удалить мёртвый первый запрос «последних транзакций», оставить рабочий ([`index.php:79`](budget/index.php:79)) и добавить в него `t.created_at`;
+- [`budget/api/get-analytics.php`](budget/api/get-analytics.php:1) — **удалить** (мёртвый, битый; страница считает на PHP, графики идут через `get-trend.php`). Альтернатива — переписать на COALESCE-логику и перевести страницу на AJAX: плюс — единый источник, минус — переделка рабочей страницы; выбираю удаление;
+- [`budget/api/add-transaction.php`](budget/api/add-transaction.php:1) — добавить CSRF-проверку и валидацию категории (тот же код, что в `update-transaction.php`);
+- [`budget/assets/sw.js`](budget/assets/sw.js:1) — `CACHE_NAME` → `budget-v2`, `self.skipWaiting()` в `install`, очистка старых кэшей и `clients.claim()` в `activate`, навигационные запросы — network-first.
+
+**F. Что изменится в цифрах (предупреждение):**
+- «Анализ» за текущий месяц станет «с 1 по сегодня» вместо «с 1 по конец месяца» — суммы уменьшатся, это ожидаемо; на главной ([`budget/index.php:9`](budget/index.php:9)) суммы не меняются, т.к. будущих `transaction_date` в базе нет.
+
+### 7.3 Чек-лист
+
+**Шаг 1. Таймзона (фундамент).**
+- [`config/env.php`](config/env.php:1): дефолт `APP_TIMEZONE = 'Europe/Moscow'`, `DB_TIMEZONE = '+03:00'`; [`budget/config.php`](budget/config.php:2) — `date_default_timezone_set()`, `getDB()` — `SET time_zone`; [`deploy/prod-config.example.php`](deploy/prod-config.example.php:1) и оба внешних конфига (локальный `.doctorofcosmetology.local.php`, прод `$HOME/.doctorofcosmetology.prod.php`) дополнить ключами.
+
+**Шаг 2. Библиотека периодов.**
+- Новый [`budget/lib/periods.php`](budget/lib/periods.php): `budgetResolvePeriod($filter, $start, $end, $today)`, `budgetPrevPeriod($start, $fact_end)`, `budgetGranularityAuto($start, $end, $requested)`, `budgetBuckets($start, $end, $granularity)`, `budgetPct($cur, $prev)`. Никаких зависимостей, чистые функции, чтобы проверять из CLI.
+
+**Шаг 3. Переписать страницу «Анализ».**
+- [`budget/analytics.php`](budget/analytics.php:1): использовать `lib/periods.php`; убрать дубль запроса ([`analytics.php:36`](budget/analytics.php:36)); добавить подписи периодов, бейдж «данные по 23 ноя», Δ в рублях и Δ% с защитой от нуля; инлайн-стили заменить на существующие классы; добавить блок «Динамика по статьям» (контейнер `#trend`, селекторы: тип, шаг, категории) — данные тянет JS.
+
+**Шаг 4. API динамики.**
+- Новый [`budget/api/get-trend.php`](budget/api/get-trend.php): валидация параметров (белый список `granularity`, `type`, `category_ids` → int), проверка владельца категорий, сборка бакетов и серий, `json_encode` с `JSON_UNESCAPED_UNICODE`.
+
+**Шаг 5. Фронт графиков.**
+- Новый [`budget/assets/chart.js`](budget/assets/chart.js) (SVG, ~150–200 строк) + подключение в [`analytics.php`](budget/analytics.php:215); стили `.trend*`, `.chart*`, `.legend*` — в [`budget/assets/style.css`](budget/assets/style.css:1).
+
+**Шаг 6. Правка транзакции.**
+- [`budget/index.php`](budget/index.php:79): в выборку `t.created_at`, разметка `.transaction-item` получает `data-id`, `data-type`, `data-editable`; снизу — разметка bottom-sheet (скрытая), категории обоих типов можно подгружать через существующий [`budget/api/categories.php`](budget/api/categories.php:1);
+- Новый [`budget/api/update-transaction.php`](budget/api/update-transaction.php) (CSRF, владелец, окно суток, валидация категории, `error_log` аудита);
+- [`budget/assets/app.js`](budget/assets/app.js:1): обработчик клика по `.transaction-item[data-editable]`, заполнение и отправка формы, обработка 403/422, обновление строки без перезагрузки (fallback — перезагрузка страницы);
+- [`budget/api/add-transaction.php`](budget/api/add-transaction.php:12): CSRF + валидация категории.
+
+**Шаг 7. Чистка.**
+- Удалить [`budget/api/get-analytics.php`](budget/api/get-analytics.php:1); удалить мёртвый запрос в [`budget/index.php`](budget/index.php:27); удалить неиспользуемый [`budget/api/get-dashboard.php`](budget/api/get-dashboard.php:1) — только если он не нужен для будущего офлайн-режима PWA (иначе оставить как есть и записать в known issues).
+
+**Шаг 8. Service Worker.**
+- [`budget/assets/sw.js`](budget/assets/sw.js:1): `budget-v2`, `skipWaiting`, `clients.claim`, удаление старых кэшей в `activate`, network-first для навигации; в `ASSETS` добавить `chart.js`.
+
+**Шаг 9. Бэкапы и деплой.**
+- Перед деплоем: `mysqldump` прод-БД в `~/backups/db/` (правило 5), локальная копия — в `data/backups/db/`; правки только в `develop` → merge в `main` → `git push origin main && git push prod main` (хук сам снимет `code-*.tar.gz`).
+
+### 7.4 Критерии приёмки
+
+**Таймзона**
+```
+php -r 'include "config/env.php"; loadExternalConfig(); echo date_default_timezone_get();'   # Europe/Moscow
+```
+и на проде: `SELECT NOW()` совпадает с `date('Y-m-d H:i')` (±1 мин).
+
+**Периоды (CLI, чистые функции)**
+```
+php -r 'require "budget/lib/periods.php"; print_r(budgetPrevPeriod("2026-11-01","2026-11-23"));'  # 2026-10-01 … 2026-10-23
+php -r 'require "budget/lib/periods.php"; print_r(budgetPrevPeriod("2026-10-01","2026-10-31"));'  # 2026-09-01 … 2026-09-30
+php -r 'require "budget/lib/periods.php"; print_r(budgetPrevPeriod("2026-01-01","2026-11-23"));'  # 2025-01-01 … 2025-11-23
+```
+Страница `/budget/analytics.php?filter=current_month` содержит подпись «1–23 ноя 2026 vs 1–23 окт 2026» и не содержит «1–30 ноя vs 2–31 окт».
+
+**Графики**
+```
+curl -s 'https://doctorofcosmetology.test/budget/api/get-trend.php?filter=current_year&granularity=month&type=expense' | php -r '$d=json_decode(file_get_contents("php://stdin"),true); echo count($d["buckets"]), " точек\n";'
+# ожидается 12; сумма всех values всех series == SUM(amount) того же периода из MySQL
+curl -s '...&start=2026-11-01&end=2026-11-23&granularity=day' → 23 бакета
+curl -s '...&start=2026-01-01&end=2026-11-23&granularity=day' → was_downgraded=1, granularity_effective=week
+```
+Сверка сумм: `SELECT SUM(amount) FROM transactions WHERE user_id=? AND type='expense' AND transaction_date BETWEEN ? AND ?` равно `total` из ответа.
+
+**Правка транзакции**
+- создать расход сегодня → на главной он кликабелен, изменить сумму → в БД новое значение, в `error_log` строка аудита (старое→новое);
+- транзакция с `DATE(created_at) < CURDATE()` (подставить вручную в БД) → элемент не кликабелен, прямой POST в `update-transaction.php` → `403`;
+- чужой `id` (другой `user_id`) → `404`; `amount = 0`, `category_id` из чужой таблицы, `transaction_date` в будущем → `422`;
+- POST без `X-CSRF-Token` → `403`.
+
+**Регресс и деплой**
+- `/budget/`, `/budget/add-expense.php`, `/budget/add-income.php`, `/budget/analytics.php`, `/budget/shopping.php` → 200, в теле нет `Fatal error`/`PDOException`;
+- суммы «Доход/Расход/Баланс» на главной до и после изменений совпадают (проверка по тем же SQL-запросам);
+- после деплоя: `curl -s https://doctorofcosmetology.ru/budget/assets/sw.js | head -1` содержит `budget-v2`; в DevTools → Application → Cache Storage старый кэш удалён;
+- `git push prod main` → `DEPLOY_OK <sha>`, запись в `~/backups/deploy/deploy.log`.
+
+### 7.5 Открытые вопросы (нужно решение до реализации)
+
+1. **Трактовка «до конца текущего дня»** — принято `DATE(created_at) = CURDATE()` (правка доступна до полуночи дня создания). Если нужно «править любую операцию с `transaction_date = сегодня`» — правило меняется на `transaction_date = CURDATE()`, и тогда вчерашние операции, введённые сегодня, редактировать нельзя.
+2. **Удаление транзакции** — не включено. Если нужно, добавлю отдельным шагом (`DELETE … WHERE id=? AND user_id=?` + то же окно суток) с подтверждением в UI.
+3. **Смена типа при правке** (доход↔расход) — сейчас запрещена (меняются сумма/категория/описание/дата). Если нужна — потребуется пересчёт категории по другой таблице и явное подтверждение в UI.
+4. **Что делать с `budget/api/get-dashboard.php`** — удалить как мёртвый или оставить под будущий офлайн-режим PWA.
