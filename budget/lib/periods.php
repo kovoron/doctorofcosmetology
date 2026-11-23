@@ -1,5 +1,12 @@
 <?php
 
+// Прямой доступ по URL (/budget/lib/periods.php) запрещён: файл подключается
+// только после budget/config.php, который определяет BUDGET_APP.
+if (!defined('BUDGET_APP')) {
+    http_response_code(404);
+    exit;
+}
+
 /**
  * Расчёт периодов и бакетов для раздела «Анализ».
  *
