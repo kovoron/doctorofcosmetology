@@ -1,0 +1,29 @@
+#!/bin/sh
+# ============================================================
+# doctorofcosmetology — хук деплоя (вариант S1)
+# ------------------------------------------------------------
+# Установка:
+#   scp deploy/post-receive doctorofcosmetology-prod:/var/www/u3548935/data/repo/doctorofcosmetology.git/hooks/post-receive
+#   ssh doctorofcosmetology-prod "chmod +x ~/repo/doctorofcosmetology.git/hooks/post-receive"
+#
+# Деплой: git push prod main
+# ============================================================
+set -e
+
+SITE=/var/www/u3548935/data/www/doctorofcosmetology.ru
+BARE=/var/www/u3548935/data/repo/doctorofcosmetology.git
+BACKUP_DIR=/var/www/u3548935/data/backups/deploy
+BRANCH=main
+
+mkdir -p "$BACKUP_DIR"
+
+# Бэкап текущего кода (ротация 20 версий)
+tar -czf "$BACKUP_DIR/code-$(date +%Y%m%d-%H%M%S).tar.gz" -C "$SITE" --exclude='.git' . 2>/dev/null || true
+ls -1t "$BACKUP_DIR"/code-*.tar.gz 2>/dev/null | tail -n +21 | xargs -r rm -f
+
+# Только отслеживаемые файлы: untracked-контент (q/, portfolio/, uslugi.json) не трогается
+git --work-tree="$SITE" --git-dir="$BARE" checkout -f "$BRANCH"
+
+REV=$(git --git-dir="$BARE" rev-parse --short "$BRANCH")
+echo "$(date '+%F %T') deployed $REV" >> "$BACKUP_DIR/deploy.log"
+echo "DEPLOY_OK $REV"

@@ -5,6 +5,21 @@
 
 ---
 
+## 0. Статус на 2026-11-23
+
+**Сделано:**
+- секреты вынесены из кода: [`config/env.php`](config/env.php:1), [`config/site.php`](config/site.php:1), [`budget/config.php`](budget/config.php:1); локальный конфиг — `/Users/kovoron/Herd/.doctorofcosmetology.local.php`;
+- создан [`.gitignore`](.gitignore:1) (PII, дампы, секреты, portfolio-контент);
+- [`budget/register.ppp`](budget/register.ppp:1) удалён, ссылка «Зарегистрироваться» из [`budget/login.php`](budget/login.php:88) убрана;
+- создана локальная БД `doctorofcosmetology_local` (utf8mb4) и юзер `dc_local@localhost`;
+- Herd: PHP 8.3 изолирован (`herd isolate 8.3`), сайт secured (https работает, http → 301);
+- git: `git init -b main`, коммит снапшота, ветки `main` и `develop` запушены в `origin`;
+- добавлены [`deploy/DEPLOY.md`](deploy/DEPLOY.md:1), [`deploy/post-receive`](deploy/post-receive:1), [`deploy/prod-config.example.php`](deploy/prod-config.example.php:1).
+
+**Осталось (блокер — SSH-ключ аккаунта `u3548935`):** дамп/импорт БД, бэкап прод-блога, bare-репо + хук, `git remote add prod`, первый деплой.
+
+---
+
 ## 1. Контекст (проверено)
 
 ### 1.1 Что реально в проекте
@@ -151,7 +166,7 @@ ssh doctorofcosmetology-prod "ls -la ~/www; php -v | head -1; git --version; whi
 
 ### Шаг 4. Чистка бюджета
 Файлы: [`budget/login.php`](budget/login.php:91) (убрать ссылку), [`budget/register.ppp`](budget/register.ppp:1) (удалить).
-Проверка: `/budget/login.php` — 200, ссылки на регистрацию нет, `/budget/register.ppp` — 404 локально и на проде после деплоя.
+Проверка: `/budget/login.php` — 200, ссылки на регистрацию нет; на проде после деплоя `/budget/register.ppp` — 404 (локально Herd на несуществующий путь отдаёт fallback `index.php`, это норма).
 
 ### Шаг 5. Git: инициализация, ветки, первый коммит
 1. `git init -b main` (после `.gitignore`) → `git add -A` → проверить `git status`: нет `q/`, нет `data/`, нет секретов.
