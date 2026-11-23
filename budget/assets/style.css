@@ -859,7 +859,8 @@ body {
 .sheet {
     position: fixed;
     inset: 0;
-    z-index: 200;
+    /* Выше .bottom-nav (z-index: 1000), иначе нижнее меню перекрывает низ окна */
+    z-index: 1100;
     display: none;
 }
 
@@ -885,7 +886,7 @@ body {
     width: 100%;
     background: var(--surface);
     border-radius: 20px 20px 0 0;
-    padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+    padding: 20px 20px calc(24px + env(safe-area-inset-bottom));
     max-height: 90vh;
     max-height: 90dvh;
     overflow-y: auto;
