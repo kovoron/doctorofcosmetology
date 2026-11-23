@@ -295,6 +295,8 @@ ssh doctorofcosmetology-prod "ls -la ~/www; php -v | head -1; git --version; whi
 
 Тестовые транзакции из локальной БД удалены — 860 записей, как в дампе прода.
 
+**Задеплоено на прод:** бэкап БД перед деплоем (`~/backups/db/doctorofcosmetology-pre-budget-20261123-172514.sql.gz`, 6 таблиц), ключи `APP_TIMEZONE`/`DB_TIMEZONE` добавлены в `$HOME/.doctorofcosmetology.prod.php`, `git push prod main` → `DEPLOY_OK 12a8525`. Проверки на проде: `/budget/` 302, `/budget/login.php` 200 без ошибок, `/budget/api/get-trend.php` 401 без сессии, `/budget/lib/periods.php` 404, ассеты 200, `sw.js` → `budget-v2`, новые стили на месте; PHP tz `Europe/Moscow`, MySQL сессия `+03:00`, `date('Y-m-d')` = `CURDATE()`; `get-trend` на боевых данных: расходы 1–23 ноя = `95 792,00 ₽` совпадает с прямым SQL, «год по дням» → автопошаг `week`, 48 точек.
+
 ### 7.1 Контекст (проверено по коду и данным)
 
 **Что есть сейчас в «Анализе»** — [`budget/analytics.php`](budget/analytics.php:1), серверный рендер, без AJAX:
