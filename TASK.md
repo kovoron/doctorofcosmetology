@@ -5,18 +5,21 @@
 
 ---
 
-## 0. Статус на 2026-11-23
+## 0. Статус на 2026-11-23 — ВЫПОЛНЕНО (цикл разработка → деплой работает)
 
-**Сделано:**
-- секреты вынесены из кода: [`config/env.php`](config/env.php:1), [`config/site.php`](config/site.php:1), [`budget/config.php`](budget/config.php:1); локальный конфиг — `/Users/kovoron/Herd/.doctorofcosmetology.local.php`;
-- создан [`.gitignore`](.gitignore:1) (PII, дампы, секреты, portfolio-контент);
-- [`budget/register.ppp`](budget/register.ppp:1) удалён, ссылка «Зарегистрироваться» из [`budget/login.php`](budget/login.php:88) убрана;
-- создана локальная БД `doctorofcosmetology_local` (utf8mb4) и юзер `dc_local@localhost`;
-- Herd: PHP 8.3 изолирован (`herd isolate 8.3`), сайт secured (https работает, http → 301);
-- git: `git init -b main`, коммит снапшота, ветки `main` и `develop` запушены в `origin`;
-- добавлены [`deploy/DEPLOY.md`](deploy/DEPLOY.md:1), [`deploy/post-receive`](deploy/post-receive:1), [`deploy/prod-config.example.php`](deploy/prod-config.example.php:1).
+**Рабочий цикл:** правки в `develop` → merge в `main` → `git push origin main && git push prod main` → в выводе `remote: DEPLOY_OK <sha>`.
 
-**Осталось (блокер — SSH-ключ аккаунта `u3548935`):** дамп/импорт БД, бэкап прод-блога, bare-репо + хук, `git remote add prod`, первый деплой.
+**Что сделано и проверено:**
+
+- **SSH.** Отдельный ключ `~/.ssh/doctorofcosmetology_deploy` + Host-блок `doctorofcosmetology-prod`; ключ авторизован в `authorized_keys` аккаунта `u3548935` (не через UI ISPmanager — модуль ключей перезаписывает файл, при отвале доступа добавить pubkey через UI).
+- **Раскладка прода (факт):** `HOME=/var/www/u3548935/data`, сайт `$HOME/www/doctorofcosmetology.ru`, вне docroot — `$HOME/.doctorofcosmetology.prod.php`, `$HOME/repo/`, `$HOME/backups/`. PHP CLI 8.2.36, web — php-fpm (`~/php-bin-regru-php83`), git 2.43.7, MySQL 8.0.25-15, диск 366G свободно.
+- **БД.** `mysqldump` (24K, 6 `CREATE TABLE`) → `scp` → импорт в `doctorofcosmetology_local`; count'ы совпали с продом: `budget_users=3`, `expense_categories=28`, `income_categories=14`, `shopping_list=3`, `shopping_products=810`, `transactions=860`. Локально `https://doctorofcosmetology.test/budget/login.php` → 200 без ошибок PHP/PDO.
+- **Секреты.** Прод-конфиг `$HOME/.doctorofcosmetology.prod.php` (chmod 600, вне docroot) собран на сервере из прежних констант — пароль не покидал сервер и не выводился в вывод. Ротация пароля по-прежнему в known issues (п.5).
+- **Сверка прод ↔ репозиторий по md5 до первого деплоя** (защита от «деплой перезапишет неожиданное»): расходятся ровно 4 файла — [`budget/config.php`](budget/config.php:1), [`budget/login.php`](budget/login.php:1), [`footer.php`](footer.php:1), [`sitemap.php`](sitemap.php:1) (запланированные правки); только в репо — `config/`, `deploy/`, [`.gitignore`](.gitignore:1), `TASK.md`; только на проде — `q/**`, `portfolio/cases/**`, `portfolio/images/**`, `uslugi.json` (не удаляются при `checkout -f`).
+- **Бэкапы.** `~/backups/site-pre-deploy-20261123-170216.tar.gz` (35M, 201 файл), `~/backups/db/doctorofcosmetology-20261123-151145.sql.gz`, `~/backups/deploy/code-20261123-170255.tar.gz` (создаёт хук перед каждым деплоем, ротация 20).
+- **`budget/register.ppp`** удалён и локально, и на проде: было 200 `octet-stream` → стало 404.
+- **Деплой.** bare-репо `$HOME/repo/doctorofcosmetology.git` + [`deploy/post-receive`](deploy/post-receive:1) (0755), локально `git remote add prod`; первый `git push prod main` → `remote: DEPLOY_OK 7006a7f`, запись в `~/backups/deploy/deploy.log`.
+- **Пост-проверка прода:** `/` 200, `/blog/` 200, `/blog/00001/` 200, `/budget/` 302 (как и раньше), `/budget/login.php` 200 без ошибок, `/budget/register.ppp` 404, `/sitemap.php` 200 (свой домен), `/uslugi.json` 200, `/portfolio/` 200, `/q/` 200; Метрика на месте (`mc.yandex` ×2); контент цел: posts=50, images=64, portfolio cases=10, q questions=5; симуляция веб-запроса: `env=production url=https://doctorofcosmetology.ru metrika=on`.
 
 ---
 
@@ -122,8 +125,19 @@
        IdentitiesOnly yes
        StrictHostKeyChecking accept-new
    ```
-3. Пользователь добавляет `doctorofcosmetology_deploy.pub` в ISPmanager аккаунта `u3548935`.
-4. Проверка: `ssh doctorofcosmetology-prod "whoami; pwd; ls ~; ls ~/www"`.
+3. Пользователь добавляет `doctorofcosmetology_deploy.pub` в аккаунт `u3548935`. Варианты (второй быстрее, если уже есть интерактивная сессия на сервере):
+   - ISPmanager: «Пользователи» → пользователь `u3548935` → «SSH-ключи» → вставить pubkey.
+   - Из шелла на сервере (`[u3548935@server9 ~]$`), идемпотентно:
+     ```
+     mkdir -p ~/.ssh && chmod 700 ~/.ssh
+     grep -qF 'doctorofcosmetology-deploy-2026' ~/.ssh/authorized_keys 2>/dev/null || \
+       printf '%s\n' 'ssh-ed25519 AAAA... doctorofcosmetology-deploy-2026' >> ~/.ssh/authorized_keys
+     chmod 600 ~/.ssh/authorized_keys
+     tail -2 ~/.ssh/authorized_keys
+     ```
+   Важно: `ssh-ed25519 AAAA...` — не команда, а строка файла `authorized_keys`; в чужой шелл её вставлять нельзя.
+4. Проверка с локальной машины: `ssh doctorofcosmetology-prod "whoami; pwd; ls ~; ls ~/www"`.
+5. Если после правок в ISPmanager доступ снова отвалился — модуль SSH-ключей перезаписал `authorized_keys`; добавить ключ через UI ISPmanager и повторить п.4.
 
 Без шага 0 заблокированы: дамп БД (шаг 2), бэкап прод-блога и первый деплой (шаг 6–7).
 
@@ -229,7 +243,7 @@ ssh doctorofcosmetology-prod "ls -la ~/www; php -v | head -1; git --version; whi
 **Деплой контента `/blog/`** (главный критерий задачи)
 - `git ls-files blog/ | wc -l` ≥ 50 + 64 (посты + картинки).
 - После `git push prod main`: `curl -s https://doctorofcosmetology.ru/blog/00051/ | head` отдаёт локальный пост; `md5` любого изменённого локально поста и картинки совпадает с продом.
-- В прод-логе деплоя есть `DEPLOY_OK`; `~/backups/blog/blog-*.tar.gz` создан до первого деплоя.
+- В прод-логе деплоя есть `DEPLOY_OK`; перед первым деплоем снят полный бэкап сайта `~/backups/site-pre-deploy-*.tar.gz` (201 файл), а хук перед каждым деплоем кладёт `~/backups/deploy/code-*.tar.gz`.
 
 **Git**
 - `git branch -vv` → `main` и `develop` с upstream `origin/*`; `git log --oneline` содержит коммит снапшота.
@@ -240,16 +254,17 @@ ssh doctorofcosmetology-prod "ls -la ~/www; php -v | head -1; git --version; whi
 
 ## 5. Нужно от пользователя
 
-1. Добавить `doctorofcosmetology_deploy.pub` в ISPmanager `u3548935` — разблокирует дамп БД, бэкап прод-блога и деплой.
+1. ~~Добавить pubkey в ISPmanager~~ — сделано, SSH и деплой работают.
 2. Решить по GitHub-репозиторию: private (рекомендую) или оставить public.
+3. Решить по ротации пароля прод-БД (known issue 5): сменить пароль в ISPmanager → обновить `$HOME/.doctorofcosmetology.prod.php` и локальный `.doctorofcosmetology.local.php` не нужно (там свой `dc_local`).
 
 ---
 
 ## 6. Known issues (напомнить позже, сейчас НЕ трогаем)
 
 1. **PII публично доступны**: `https://doctorofcosmetology.ru/q/questions/q00001.json` → 200 (имя, телефон, email), `q/images/*` тоже открыты. Нужен запрет прямого доступа к `q/questions/` и `q/images/` (`.htaccess` + проверка, что `/q/` продолжает работать). Пока не трогаем по решению пользователя.
-2. `budget/register.ppp` отдавался как файл (исходник) — исправляется в шаге 4.
-3. Регистрация в бюджете сломана на проде (`/budget/register.php` → 404) — закрываем удалением формы/ссылки.
+2. ~~`budget/register.ppp` отдавался как файл (исходник)~~ — файл удалён с прода и из репозитория, `/budget/register.ppp` → 404.
+3. ~~Регистрация в бюджете сломана на проде~~ — форма и ссылка убраны из [`budget/login.php`](budget/login.php:1).
 4. GitHub-репозиторий публичный — если останется public, код и контент блога видны всем.
 5. Пароль прод-БД был в коде (`budget/config.php`) и в переписке — после выноса конфигов **ротировать** и обновить `.doctorofcosmetology.prod.php`.
 6. Счётчик Метрики `109925540` срабатывает на локальных страницах — отключается флагом `METRIKA_ENABLED` в шаге 3.2.
