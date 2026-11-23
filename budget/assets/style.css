@@ -863,8 +863,15 @@ body {
     display: none;
 }
 
+/*
+ * Оверлей — flex-контейнер, панель прижата к низу и является ЕДИНСТВЕННЫМ
+ * скроллером. Вариант «position: absolute; bottom: 0; max-height: 88vh»
+ * на iOS Safari внутри position: fixed не прокручивается вообще (проверено).
+ */
 .sheet--open {
-    display: block;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
 }
 
 .sheet__backdrop {
@@ -874,15 +881,16 @@ body {
 }
 
 .sheet__panel {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    position: relative;
+    width: 100%;
     background: var(--surface);
     border-radius: 20px 20px 0 0;
-    padding: 20px;
-    max-height: 88vh;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+    max-height: 90vh;
+    max-height: 90dvh;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     animation: sheet-up 0.2s ease-out;
 }
 
@@ -917,9 +925,10 @@ body {
     min-height: 18px;
 }
 
+/* Внутри окна нет второго скроллера: категории листаются вместе с формой */
 .sheet .categories {
-    max-height: 40vh;
-    overflow-y: auto;
+    max-height: none;
+    overflow: visible;
 }
 
 @media (prefers-reduced-motion: reduce) {

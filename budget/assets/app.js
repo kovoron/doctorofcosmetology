@@ -239,8 +239,32 @@ document.querySelector('.form input[name="amount"]')?.focus();
     const errorEl = document.getElementById('edit-error');
     const submitEl = document.getElementById('edit-submit');
 
+    const sheetPanel = sheet.querySelector('.sheet__panel');
     const expenseGroup = sheet.querySelector('.categories[data-type="expense"]');
     const incomeGroup = sheet.querySelector('.categories[data-type="income"]');
+
+    // Блокировка прокрутки страницы под оверлеем.
+    // Делаем через position: fixed, а не через body{overflow:hidden}: на iOS Safari
+    // overflow:hidden на body ломает вложенные скроллеры внутри position: fixed.
+    let lockedScrollY = 0;
+
+    function lockBody() {
+        lockedScrollY = window.scrollY || window.pageYOffset || 0;
+        document.body.style.position = 'fixed';
+        document.body.style.top = '-' + lockedScrollY + 'px';
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.width = '100%';
+    }
+
+    function unlockBody() {
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        document.body.style.width = '';
+        window.scrollTo(0, lockedScrollY);
+    }
 
     function resetRadios() {
         sheet.querySelectorAll('input[name="category_id"]').forEach(radio => {
@@ -279,13 +303,40 @@ document.querySelector('.form input[name="amount"]')?.focus();
 
         sheet.classList.add('sheet--open');
         sheet.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
+        lockBody();
+
+        // Диагностика вёрстки модального окна (открывается с ?diag=1).
+        // Нужна, чтобы понять, почему на мобильном не прокручивается панель.
+        if (location.search.indexOf('diag=1') !== -1) {
+            requestAnimationFrame(() => {
+                const panelStyle = getComputedStyle(sheetPanel);
+                const categoriesStyle = getComputedStyle(sheet.querySelector('.categories:not(.hidden)') || sheetPanel);
+                const report = {
+                    innerHeight: window.innerHeight,
+                    visualViewport: window.visualViewport ? Math.round(window.visualViewport.height) : 'n/a',
+                    docClientHeight: document.documentElement.clientHeight,
+                    sheetHeight: Math.round(sheet.getBoundingClientRect().height),
+                    panelTop: Math.round(sheetPanel.getBoundingClientRect().top),
+                    panelBottom: Math.round(sheetPanel.getBoundingClientRect().bottom),
+                    panelClientHeight: sheetPanel.clientHeight,
+                    panelScrollHeight: sheetPanel.scrollHeight,
+                    panelOverflowY: panelStyle.overflowY,
+                    panelMaxHeight: panelStyle.maxHeight,
+                    categoriesClientHeight: categoriesStyle.height,
+                    categoriesScroll: sheet.querySelector('.categories:not(.hidden)') ? sheet.querySelector('.categories:not(.hidden)').scrollHeight : 'n/a'
+                };
+                console.log('[sheet diag]', report);
+                errorEl.textContent = 'diag: ' + JSON.stringify(report);
+                errorEl.style.fontSize = '10px';
+                errorEl.style.color = 'var(--text-secondary)';
+            });
+        }
     }
 
     function close() {
         sheet.classList.remove('sheet--open');
         sheet.setAttribute('aria-hidden', 'true');
-        document.body.style.overflow = '';
+        unlockBody();
         errorEl.textContent = '';
     }
 
