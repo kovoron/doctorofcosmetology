@@ -30,12 +30,14 @@ const BUDGET_MONTHS_FULL = [
 ];
 
 /**
- * Лимиты количества точек на графике. При превышении шаг понижается
- * автоматически (день → неделя → месяц), чтобы график оставался читаемым.
+ * Жёсткие пределы количества точек. Это защита от тысяч точек (например,
+ * «день» за 3 года), а не «умный» даунгрейд: явный выбор пользователя
+ * уважаем — год по дням даёт 365 точек, неделя по году — 52.
+ * Автовыбор шага (granularity=auto) считается отдельно, по порогам ниже.
  */
 function budgetBucketLimits(): array
 {
-    return ['day' => 62, 'week' => 78, 'month' => 36];
+    return ['day' => 400, 'week' => 600, 'month' => 130];
 }
 
 /**
@@ -252,9 +254,9 @@ function budgetGranularityAuto(string $start, string $end, string $requested = '
     $requested = in_array($requested, ['day', 'week', 'month'], true) ? $requested : 'auto';
 
     if ($requested === 'auto') {
-        // Автовыбор: до ~2 месяцев — дни, до ~1.5 лет — недели, дальше месяцы.
+        // Автовыбор: до ~2 месяцев — дни, до ~6 месяцев — недели, дальше месяцы.
         $days = budgetDaysInclusive($start, $end);
-        $effective = $days <= $limits['day'] ? 'day' : ($days <= 180 ? 'week' : 'month');
+        $effective = $days <= 62 ? 'day' : ($days <= 180 ? 'week' : 'month');
 
         return ['requested' => 'auto', 'effective' => $effective, 'downgraded' => false];
     }
