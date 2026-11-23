@@ -84,8 +84,13 @@ document.querySelector('.form input[name="amount"]')?.focus();
         data.categories.forEach(category => {
             const chip = document.createElement('button');
             chip.type = 'button';
-            chip.className = 'chip' + (seriesIndexById[category.id] !== undefined ? ' chip--active' : '');
+            chip.className = 'chip'
+                + (seriesIndexById[category.id] !== undefined ? ' chip--active' : '')
+                + (category.has_data ? '' : ' chip--muted');
             chip.dataset.categoryId = category.id;
+            if (!category.has_data) {
+                chip.title = 'Нет операций за выбранный период';
+            }
 
             const dot = document.createElement('span');
             dot.className = 'chip__dot';
@@ -141,6 +146,10 @@ document.querySelector('.form input[name="amount"]')?.focus();
         if (data.granularity.downgraded) {
             const names = { day: 'по дням', week: 'по неделям', month: 'по месяцам' };
             parts.push('шаг изменён автоматически на «' + (names[data.granularity.effective] || data.granularity.effective) + '» — слишком много точек');
+        }
+        const withoutData = data.categories.filter(category => !category.has_data).length;
+        if (withoutData) {
+            parts.push('приглушённые статьи — без операций за период (' + withoutData + ')');
         }
         noteEl.textContent = parts.join(' · ');
     }

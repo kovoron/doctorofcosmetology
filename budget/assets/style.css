@@ -724,6 +724,11 @@ body {
     background: var(--surface);
 }
 
+/* Статья без операций за выбранный период */
+.chip--muted {
+    opacity: 0.55;
+}
+
 .chip__dot {
     width: 8px;
     height: 8px;

@@ -146,6 +146,7 @@ foreach ($orderedTotals as $categoryId => $sum) {
         'name' => $meta['name'],
         'icon' => $meta['icon'],
         'total' => round((float) $sum, 2),
+        'has_data' => isset($totals[$categoryId]),
         'selected' => $hasSelection ? in_array($categoryId, $selectedIds, true) : true,
     ];
 }

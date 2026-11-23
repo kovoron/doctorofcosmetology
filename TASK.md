@@ -288,6 +288,9 @@ ssh doctorofcosmetology-prod "ls -la ~/www; php -v | head -1; git --version; whi
 - **«Анализ»**: [`budget/analytics.php`](budget/analytics.php:1) переписан (дубль запроса убран, Δ% и Δ₽, бейдж «данные по 23 ноя», подпись `vs 1–23 окт 2026`);
 - **графики**: [`budget/api/get-trend.php`](budget/api/get-trend.php:1) — сумма серий равна прямому SQL (`841 099 ₽` за 2026), `day` по году → автопонижение до `week` (48 точек, `downgraded=1`), `month` по году → 11 месяцев данных, выбор статей через `category_ids`;
 - **рендер**: [`budget/assets/chart.js`](budget/assets/chart.js:1) + стили в [`budget/assets/style.css`](budget/assets/style.css:628);
+  - по умолчанию рисуются **все** статьи с операциями за период (раньше — только топ-6 + «Прочее»); пустой выбор статей даёт пустой график, «× сбросить» возвращает режим «все»;
+  - чипы показывают все статьи типа, статьи без операций приглушены и подписаны в заметке под графиком;
+- **модальное окно правки**: оверлей на flex, панель — единственный скроллер (`max-height: 90dvh`, `overscroll-behavior: contain`), `z-index: 1100` — выше `.bottom-nav` (`z-index: 1000`); страница блокируется через `position: fixed`, а не `overflow: hidden` на `body` (иначе iOS не прокручивает вложенный скролл);
 - **правка операции**: [`budget/index.php`](budget/index.php:1) (data-атрибуты, `can_edit`, bottom-sheet), [`budget/api/update-transaction.php`](budget/api/update-transaction.php:1), [`budget/assets/app.js`](budget/assets/app.js:1); проверено: `200` для своей сегодняшней, `403` вчерашняя и без CSRF, `404` чужая, `422` будущая дата / нулевая сумма / недоступная категория;
 - **CSRF + валидация** в [`budget/api/add-transaction.php`](budget/api/add-transaction.php:1);
 - **SW**: [`budget/assets/sw.js`](budget/assets/sw.js:1) → `budget-v2`, `skipWaiting`, очистка старых кэшей, network-first для навигации и `/budget/api/`;
