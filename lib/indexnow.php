@@ -618,7 +618,7 @@ if (!function_exists('indexNowChangedUrls')) {
                 continue;
             }
 
-            if (preg_match('#^blog/posts/([0-9]{5})\.json$#', $path, $m) === 1) {
+            if (preg_match('#^blog/posts/[0-9]{5}(?:-[^/]+)?\.json$#', $path) === 1) {
                 $file = $siteDir . '/' . $path;
                 if (!is_file($file)) {
                     // Удалённый пост: старый URL отдельно не пингуем.
@@ -638,7 +638,12 @@ if (!function_exists('indexNowChangedUrls')) {
                     continue;
                 }
 
-                $postUrl = blogPostUrl(['id' => $m[1], 'slug' => $data['slug'] ?? '']);
+                $identity = postIdentityFromFilename($path, $data);
+                if ($identity['id'] === '') {
+                    continue;
+                }
+
+                $postUrl = blogPostUrl($identity);
                 if ($postUrl !== '') {
                     $urls[$postUrl] = true;
                 }

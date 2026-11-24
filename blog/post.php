@@ -2,18 +2,44 @@
 require_once __DIR__ . '/../config/urls.php';
 
 $postId = isset($_GET['id']) && is_string($_GET['id']) ? $_GET['id'] : '';
+$requestedSlug = isset($_GET['slug']) && is_string($_GET['slug']) ? $_GET['slug'] : '';
 $postDir = __DIR__ . '/posts/';
 $today = date('Y-m-d');
 
 $post = null;
 $loadError = null; // notfound | draft | broken
+$postFile = null;
 
-// Жёсткая валидация id: имя файла собирается только из ^[0-9]{5}$
+// id — строго 5 цифр; файл может называться {id}.json или {id}-{slug}.json
 if (!preg_match('/^[0-9]{5}$/', $postId)) {
     $loadError = 'notfound';
 } else {
-    $postFile = $postDir . $postId . '.json';
-    if (!is_file($postFile)) {
+    $exactFile = $postDir . $postId . '.json';
+
+    if (is_file($exactFile)) {
+        $postFile = $exactFile;
+    } else {
+        $candidates = glob($postDir . $postId . '-*.json');
+        if (is_array($candidates) && $candidates !== []) {
+            $normalizedRequestedSlug = normalizePostSlug($requestedSlug);
+
+            if ($normalizedRequestedSlug !== '') {
+                foreach ($candidates as $candidate) {
+                    if (postSlugFromFilename($candidate) === $normalizedRequestedSlug) {
+                        $postFile = $candidate;
+                        break;
+                    }
+                }
+            }
+
+            if ($postFile === null) {
+                sort($candidates, SORT_STRING);
+                $postFile = $candidates[0];
+            }
+        }
+    }
+
+    if ($postFile === null) {
         $loadError = 'notfound';
     } else {
         $rawJson = file_get_contents($postFile);
@@ -21,12 +47,20 @@ if (!preg_match('/^[0-9]{5}$/', $postId)) {
         if (!is_array($decoded)) {
             $loadError = 'broken';
         } else {
-            $post = $decoded;
-            $post['id'] = $postId;
-            // Черновик: publish_date > today
-            if (isset($post['publish_date']) && $post['publish_date'] > $today) {
-                $loadError = 'draft';
-                $post = null;
+            $identity = postIdentityFromFilename($postFile, $decoded);
+            if ($identity['id'] === '') {
+                $loadError = 'broken';
+            } else {
+                $post = $decoded;
+                $post['id'] = $identity['id'];
+                $post['slug'] = $identity['slug'];
+                $postId = $identity['id'];
+
+                // Черновик: publish_date > today
+                if (isset($post['publish_date']) && $post['publish_date'] > $today) {
+                    $loadError = 'draft';
+                    $post = null;
+                }
             }
         }
     }
@@ -97,10 +131,13 @@ if (!empty($post['images'])) {
     }
 }
 
-// Главное изображение по шаблону post-{ID}-1.jpg
-$mainImageName = 'post-' . $postId . '-1.jpg';
-$mainImagePath = $_SERVER['DOCUMENT_ROOT'] . '/blog/images/' . $mainImageName;
-$thumbnail = file_exists($mainImagePath) ? '/blog/images/' . $mainImageName : null;
+// Главное изображение: первая существующая из JSON, иначе post-{ID}-1.jpg
+$thumbnail = $validImages[0] ?? null;
+if ($thumbnail === null) {
+    $mainImageName = 'post-' . $postId . '-1.jpg';
+    $mainImagePath = $_SERVER['DOCUMENT_ROOT'] . '/blog/images/' . $mainImageName;
+    $thumbnail = file_exists($mainImagePath) ? '/blog/images/' . $mainImageName : null;
+}
 
 // Категория
 $categoryMap = [
@@ -210,18 +247,33 @@ if ($img2 || $img3) {
 // =========================================
 // ПОДБОР ПОХОЖИХ СТАТЕЙ ПО ТЕГАМ
 // =========================================
+$currentRealPath = $postFile !== null ? realpath($postFile) : false;
+
 $allPosts = [];
 if (is_dir($postDir)) {
     $files = scandir($postDir);
     foreach ($files as $file) {
-        if (pathinfo($file, PATHINFO_EXTENSION) === 'json' && $file !== $postId . '.json') {
-            $filePath = $postDir . $file;
-            $jsonData = file_get_contents($filePath);
-            $postData = json_decode($jsonData, true);
-            if ($postData && isset($postData['publish_date']) && $postData['publish_date'] <= $today) {
-                $postData['id'] = pathinfo($file, PATHINFO_FILENAME);
-                $allPosts[] = $postData;
+        if (pathinfo($file, PATHINFO_EXTENSION) !== 'json') {
+            continue;
+        }
+
+        $filePath = $postDir . $file;
+
+        // Исключаем текущую статью по реальному пути, а не по шаблону имени
+        if ($currentRealPath !== false && realpath($filePath) === $currentRealPath) {
+            continue;
+        }
+
+        $jsonData = file_get_contents($filePath);
+        $postData = json_decode($jsonData, true);
+        if (is_array($postData) && isset($postData['publish_date']) && $postData['publish_date'] <= $today) {
+            $otherIdentity = postIdentityFromFilename($filePath, $postData);
+            if ($otherIdentity['id'] === '') {
+                continue;
             }
+            $postData['id'] = $otherIdentity['id'];
+            $postData['slug'] = $otherIdentity['slug'];
+            $allPosts[] = $postData;
         }
     }
 }
@@ -294,7 +346,9 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
                         </div>
                     </div>
                     <div class="post-header__image">
+                        <?php if ($thumbnail !== null): ?>
                         <img src="<?= htmlspecialchars($thumbnail) ?>" alt="<?= htmlspecialchars($post['title']) ?>" loading="lazy">
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

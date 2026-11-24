@@ -8,8 +8,9 @@
  * Ни одна функция не бросает исключений.
  *
  * Правила:
- *  - id статьи всегда ^[0-9]{5}$;
- *  - slug никогда не участвует в имени файла;
+ *  - id статьи всегда первые 5 цифр имени файла ^[0-9]{5}$;
+ *  - поддерживаются оба имени файла: {id}.json и {id}-{slug}.json;
+ *  - slug берётся из JSON, а если его там нет — из имени файла;
  *  - невалидный slug → '' + error_log (не 500).
  */
 
@@ -64,6 +65,66 @@ if (!function_exists('postSlug')) {
         }
 
         return '';
+    }
+}
+
+if (!function_exists('postIdFromFilename')) {
+    /**
+     * ID статьи из имени файла: «00058-fotona-…json» и «00058.json» → «00058».
+     * Невалидное имя (нет 5 цифр в начале или лишние символы) → '' + error_log.
+     */
+    function postIdFromFilename($filename): string
+    {
+        $name = is_string($filename) ? basename($filename) : '';
+        $name = (string) preg_replace('/\.json$/i', '', $name);
+
+        if (preg_match('/^([0-9]{5})(?:-.*)?$/', $name, $m) !== 1) {
+            error_log('config/urls.php: invalid post filename: ' . $name);
+
+            return '';
+        }
+
+        return $m[1];
+    }
+}
+
+if (!function_exists('postSlugFromFilename')) {
+    /**
+     * Slug из имени файла «00058-fotona-…json» → «fotona-…».
+     * У имени «00058.json» slug отсутствует → ''.
+     */
+    function postSlugFromFilename($filename): string
+    {
+        $name = is_string($filename) ? basename($filename) : '';
+        $name = (string) preg_replace('/\.json$/i', '', $name);
+
+        if (preg_match('/^[0-9]{5}-(.+)$/', $name, $m) !== 1) {
+            return '';
+        }
+
+        return normalizePostSlug($m[1]);
+    }
+}
+
+if (!function_exists('postIdentityFromFilename')) {
+    /**
+     * id и slug статьи по имени файла и данным JSON.
+     * Приоритет slug: поле JSON, затем суффикс имени файла.
+     * Возвращает ['id' => '00058', 'slug' => 'fotona-…'] либо ['id' => '', 'slug' => ''].
+     */
+    function postIdentityFromFilename($filename, array $data = []): array
+    {
+        $id = postIdFromFilename($filename);
+        if ($id === '') {
+            return ['id' => '', 'slug' => ''];
+        }
+
+        $slug = postSlug($data);
+        if ($slug === '') {
+            $slug = postSlugFromFilename($filename);
+        }
+
+        return ['id' => $id, 'slug' => $slug];
     }
 }
 

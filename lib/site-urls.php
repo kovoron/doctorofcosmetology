@@ -73,11 +73,14 @@ if (!function_exists('collectSiteEntries')) {
                         continue;
                     }
 
-                    $postId = pathinfo($file, PATHINFO_FILENAME);
-                    $postPath = blogPostPath(['id' => $postId, 'slug' => $data['slug'] ?? '']);
+                    $identity = postIdentityFromFilename($file, $data);
+                    if ($identity['id'] === '') {
+                        // Невалидное имя файла: пропускаем.
+                        continue;
+                    }
 
+                    $postPath = blogPostPath($identity);
                     if ($postPath === '') {
-                        // Невалидный id: пропускаем.
                         continue;
                     }
 

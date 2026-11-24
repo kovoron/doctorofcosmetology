@@ -17,8 +17,14 @@ if (is_dir($postsDir)) {
             $filePath = $postsDir . $file;
             $json = file_get_contents($filePath);
             $data = json_decode($json, true);
-            if ($data) {
-                $data['id'] = pathinfo($file, PATHINFO_FILENAME);
+            if (is_array($data)) {
+                // Поддержка обоих имён: 00001.json и 00058-slug.json
+                $identity = postIdentityFromFilename($file, $data);
+                if ($identity['id'] === '') {
+                    continue;
+                }
+                $data['id'] = $identity['id'];
+                $data['slug'] = $identity['slug'];
                 $allPosts[] = $data;
             }
         }
@@ -97,16 +103,23 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
             <div class="blog-posts">
                 <?php foreach ($posts as $post): ?>
                 <?php
-                // Проверяем изображения
+                // Обложка: первая существующая картинка из JSON, иначе post-{id}-1.jpg
                 $validImages = [];
-                if (!empty($post['images'])) {
+                if (!empty($post['images']) && is_array($post['images'])) {
                     foreach ($post['images'] as $img) {
-                        if (file_exists(__DIR__ . '/images/' . $img)) {
+                        if (is_string($img) && $img !== '' && file_exists(__DIR__ . '/images/' . $img)) {
                             $validImages[] = '/blog/images/' . $img;
                         }
                     }
                 }
-        $thumbnail = '/blog/images/post-' . htmlspecialchars($post['id']) . '-1.jpg';
+
+                $thumbnail = $validImages[0] ?? null;
+                if ($thumbnail === null) {
+                    $fallbackImage = 'post-' . $post['id'] . '-1.jpg';
+                    if (is_file(__DIR__ . '/images/' . $fallbackImage)) {
+                        $thumbnail = '/blog/images/' . $fallbackImage;
+                    }
+                }
 
                 // Анонс: excerpt из JSON; обрезанный текст — только если excerpt пуст
                 $excerpt = isset($post['excerpt']) && is_string($post['excerpt']) ? trim($post['excerpt']) : '';
@@ -120,6 +133,9 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 
                 // Канонический путь карточки: /blog/{id}/ или /blog/{id}-{slug}/
                 $postPath = blogPostPath($post);
+                if ($postPath === '') {
+                    continue;
+                }
                 
                 // Форматируем дату
                 $formattedDate = date('d M Y', strtotime($post['date']));
@@ -132,9 +148,11 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
                 
                 <article class="blog-post-card">
                     <div class="blog-post-card__image">
-                        <img src="<?= htmlspecialchars($thumbnail) ?>" 
-                             alt="<?= htmlspecialchars($post['title']) ?>" 
+                        <?php if ($thumbnail !== null): ?>
+                        <img src="<?= htmlspecialchars($thumbnail) ?>"
+                             alt="<?= htmlspecialchars($post['title']) ?>"
                              loading="lazy">
+                        <?php endif; ?>
                     </div>
                     
                     <div class="blog-post-card__content">
