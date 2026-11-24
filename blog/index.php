@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/urls.php';
+
 $postsDir = __DIR__ . '/posts/';
 $postsPerPage = 5;
 
@@ -55,10 +57,12 @@ $categories = [
 
 $pageTitle = 'Личный блог Врача-косметолога где я пишу про перпараты и процедуры, которые делаю каждый день. Врача-косметолог Ксения Якшигулова';
 
+// canonical списка всегда /blog/, включая ?category= и ?page=
+$canonical = '/blog/';
+$pageDescription = 'Блог Врача-косметолог с красным дипломом и опытом с 2011 года. Пишу о работе без прикрас. Обучалась в Австрии, Испании, Турции, Кипре и России. Ксения Юрьевна Якшигулова.';
+
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 ?>
-
-<meta name="description" content="Блог Врача-косметолог с красным дипломом и опытом с 2011 года. Пишу о работе без прикрас. Обучалась в Австрии, Испании, Турции, Кипре и России. Ксения Юрьевна Якшигулова.">
 
 
 <section class="blog-page">
@@ -103,6 +107,19 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
                     }
                 }
         $thumbnail = '/blog/images/post-' . htmlspecialchars($post['id']) . '-1.jpg';
+
+                // Анонс: excerpt из JSON; обрезанный текст — только если excerpt пуст
+                $excerpt = isset($post['excerpt']) && is_string($post['excerpt']) ? trim($post['excerpt']) : '';
+                if ($excerpt === '') {
+                    $plainText = trim(strip_tags($post['text'] ?? ''));
+                    $excerpt = mb_substr($plainText, 0, 180);
+                    if (mb_strlen($plainText, 'UTF-8') > 180) {
+                        $excerpt .= '…';
+                    }
+                }
+
+                // Канонический путь карточки: /blog/{id}/ или /blog/{id}-{slug}/
+                $postPath = blogPostPath($post);
                 
                 // Форматируем дату
                 $formattedDate = date('d M Y', strtotime($post['date']));
@@ -124,13 +141,13 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
                         <div class="blog-post-card__category"><?= $categoryName ?></div>
                         
                         <h2 class="blog-post-card__title">
-                            <a href="/blog/<?= htmlspecialchars($post['id']) ?>">
+                            <a href="<?= htmlspecialchars($postPath, ENT_QUOTES, 'UTF-8') ?>">
                                 <?= htmlspecialchars($post['title']) ?>
                             </a>
                         </h2>
                         
                         <div class="blog-post-card__excerpt">
-                            <?= strip_tags(mb_substr($post['text'], 0, 180), '<br>') ?>...
+                            <?= htmlspecialchars($excerpt, ENT_QUOTES, 'UTF-8') ?>
                         </div>
                         
                         <div class="blog-post-card__meta">
@@ -143,7 +160,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
                             </span>
                         </div>
                         
-                        <a href="/blog/<?= htmlspecialchars($post['id']) ?>" class="blog-post-card__btn">
+                        <a href="<?= htmlspecialchars($postPath, ENT_QUOTES, 'UTF-8') ?>" class="blog-post-card__btn">
                             ЧИТАТЬ
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="5" y1="12" x2="19" y2="12"></line>

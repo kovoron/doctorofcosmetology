@@ -1,10 +1,17 @@
 RewriteEngine On
 
-# Исключаем реальные файлы и папки
+# Rewrite-правила корневого .htaccess в подкаталоги не наследуются,
+# поэтому канонизация хоста и /portfolio/index.php продублированы здесь.
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+
+RewriteRule ^index\.php$ /portfolio/ [R=301,L]
+
+# Исключаем реальные файлы и папки (в т.ч. portfolio/images/*)
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Роутинг: /portfolio/0003 → case.php?id=0003
-RewriteRule ^([0-9]+)$ case.php?id=$1 [L,QSA]
-RewriteRule ^([0-9]+)/$ case.php?id=$1 [L,QSA]
+# Роутинг кейсов: /portfolio/0003 и /portfolio/0003/ → case.php?id=0003
+# Редирект на завершающий слэш делает case.php (301 на /portfolio/{id}/).
+RewriteRule ^([0-9]+)/?$ case.php?id=$1 [L,QSA]

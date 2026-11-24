@@ -1,6 +1,7 @@
 <?php
 session_start();
 $pageTitle = 'Вопросы для врача-косметолога. Можно анонимно. Любая тема.';
+$canonical = '/q/';
 
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 

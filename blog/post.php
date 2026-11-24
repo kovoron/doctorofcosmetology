@@ -1,41 +1,90 @@
 <?php
-$postId = $_GET['id'] ?? '';
+require_once __DIR__ . '/../config/urls.php';
+
+$postId = isset($_GET['id']) && is_string($_GET['id']) ? $_GET['id'] : '';
 $postDir = __DIR__ . '/posts/';
-$postFile = $postDir . $postId . '.json';
-
-// 404 если файл не найден
-if (!file_exists($postFile)) {
-    header('HTTP/1.1 404 Not Found');
-    echo '<div class="container" style="padding:150px 0;text-align:center;">
-            <h1>Пост не найден</h1>
-            <a href="/blog/" style="color:#8B7355;text-decoration:none;">← Вернуться в блог</a>
-          </div>';
-    exit;
-}
-
-// Загружаем и декодируем JSON
-$json = file_get_contents($postFile);
-$post = json_decode($json, true);
-
-if (!$post) {
-    header('HTTP/1.1 500 Internal Server Error');
-    echo '<h1>Ошибка загрузки поста</h1>';
-    exit;
-}
-
-// Проверяем дату публикации
 $today = date('Y-m-d');
-if (isset($post['publish_date']) && $post['publish_date'] > $today) {
-    header('HTTP/1.1 404 Not Found');
-    echo '<h1>Пост ещё не опубликован</h1>';
+
+$post = null;
+$loadError = null; // notfound | draft | broken
+
+// Жёсткая валидация id: имя файла собирается только из ^[0-9]{5}$
+if (!preg_match('/^[0-9]{5}$/', $postId)) {
+    $loadError = 'notfound';
+} else {
+    $postFile = $postDir . $postId . '.json';
+    if (!is_file($postFile)) {
+        $loadError = 'notfound';
+    } else {
+        $rawJson = file_get_contents($postFile);
+        $decoded = is_string($rawJson) ? json_decode($rawJson, true) : null;
+        if (!is_array($decoded)) {
+            $loadError = 'broken';
+        } else {
+            $post = $decoded;
+            $post['id'] = $postId;
+            // Черновик: publish_date > today
+            if (isset($post['publish_date']) && $post['publish_date'] > $today) {
+                $loadError = 'draft';
+                $post = null;
+            }
+        }
+    }
+}
+
+// 404/500: корректный статус, noindex, рендер через header/footer, без canonical
+if ($loadError !== null) {
+    http_response_code($loadError === 'broken' ? 500 : 404);
+    $noindex = true;
+    $canonical = '';
+
+    if ($loadError === 'draft') {
+        $errorHeading = 'Пост ещё не опубликован';
+    } elseif ($loadError === 'broken') {
+        $errorHeading = 'Ошибка загрузки поста';
+    } else {
+        $errorHeading = 'Пост не найден';
+    }
+    $pageTitle = $errorHeading . ' — врач-косметолог Ксения Якшигулова';
+
+    include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
+    ?>
+    <section class="post-page">
+        <div class="container" style="padding:150px 0;text-align:center;">
+            <h1><?= htmlspecialchars($errorHeading, ENT_QUOTES, 'UTF-8') ?></h1>
+            <p><a href="/blog/" style="color:#8B7355;text-decoration:none;">← Вернуться в блог</a></p>
+        </div>
+    </section>
+    <?php
+    include $_SERVER['DOCUMENT_ROOT'] . '/footer.php';
     exit;
 }
+
+// Канонический адрес статьи: /blog/{id}/ или /blog/{id}-{slug}/
+// 301 одним хопом покрывает /blog/{id}, /blog/{id}/ при наличии slug, чужой slug и post.php?id=
+$canonicalPath = blogPostPath($post);
+if ($canonicalPath !== '' && rawurldecode($canonicalPath) !== requestPath()) {
+    header('Location: ' . absoluteUrl($canonicalPath), true, 301);
+    exit;
+}
+$canonical = $canonicalPath;
 
 // Динамический заголовок страницы
-$pageTitle = htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8') . ' — врач-косметолог Ксения Якшигулова';
+$pageTitle = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8') . ' — врач-косметолог Ксения Якшигулова';
+
+// Подзаголовок и meta description — из excerpt; fallback на text только если excerpt пуст
+$postExcerpt = isset($post['excerpt']) && is_string($post['excerpt']) ? trim($post['excerpt']) : '';
+if ($postExcerpt === '') {
+    $plainText = trim(strip_tags($post['text'] ?? ''));
+    $postExcerpt = mb_substr($plainText, 0, 200);
+    if (mb_strlen($plainText, 'UTF-8') > 200) {
+        $postExcerpt .= '…';
+    }
+}
+$pageDescription = $postExcerpt;
 
 // Форматируем дату и время чтения
-$formattedDate = date('d M Y', strtotime($post['date']));
+$formattedDate = date('d M Y', strtotime($post['date'] ?? 'now'));
 $readingTime = isset($post['reading_time']) ? $post['reading_time'] : '5';
 
 // Проверяем изображения
@@ -186,6 +235,7 @@ if (!empty($post['tags']) && !empty($allPosts)) {
                 $thumbUrl = '/blog/images/post-' . $otherPost['id'] . '-1.jpg';
                 $similarPosts[] = [
                     'id'        => $otherPost['id'],
+                    'slug'      => $otherPost['slug'] ?? '',
                     'title'     => $otherPost['title'],
                     'date'      => $otherPost['date'],
                     'images'    => [$thumbUrl],
@@ -199,17 +249,8 @@ if (!empty($post['tags']) && !empty($allPosts)) {
     $similarPosts = array_slice($similarPosts, 0, 4);
 }
 
-// Динамический заголовок страницы
-$pageTitle = htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8') . ' — врач-косметолог Ксения Якшигулова';
-
-// Динамический мета-тег description из поля excerpt
-$rawExcerpt = $post['excerpt'] ?? mb_substr(strip_tags($post['text']), 0, 160);
-$metaDescription = htmlspecialchars($rawExcerpt, ENT_QUOTES, 'UTF-8');
-
-
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
 ?>
-<meta name="description" content="<?= $metaDescription ?>">
 <article class="post-page">
     <!-- Header поста -->
     <div class="post-header">
@@ -220,7 +261,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
                         <span class="post-header__category"><?= $categoryName ?></span>
                         <h1 class="post-header__title"><?= htmlspecialchars($post['title']) ?></h1>
                         <p class="post-header__excerpt">
-                            <?= htmlspecialchars($post['excerpt'] ?? mb_substr(strip_tags($post['text']), 0, 200)) ?>...
+                            <?= htmlspecialchars($postExcerpt, ENT_QUOTES, 'UTF-8') ?>
                         </p>
                         <div class="post-header__meta">
                             <time datetime="<?= htmlspecialchars($post['date']) ?>">
@@ -353,7 +394,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
                                     $similarImage = $similar['images'][0];
                                 }
                             ?>
-                            <a href="/blog/<?= htmlspecialchars($similar['id']) ?>" class="post-popular__item">
+                            <a href="<?= htmlspecialchars(blogPostPath($similar), ENT_QUOTES, 'UTF-8') ?>" class="post-popular__item">
                                 <?php if ($similarImage): ?>
                                     <img src="<?= htmlspecialchars($similarImage) ?>" alt="<?= htmlspecialchars($similar['title']) ?>" class="post-popular__image" loading="lazy">
                                 <?php else: ?>
@@ -377,7 +418,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
                             <?php foreach ($portfolioMatches as $match): 
                                 $thumbPath = !empty($match['images']['before']) ? '/portfolio/images/' . $match['images']['before'] : '';
                             ?>
-                            <a href="/portfolio/<?= htmlspecialchars($match['case_id']) ?>" class="portfolio-match-item">
+                            <a href="/portfolio/<?= htmlspecialchars($match['case_id']) ?>/" class="portfolio-match-item">
                                 <?php if ($thumbPath): ?>
                                     <img src="<?= htmlspecialchars($thumbPath) ?>" alt="<?= htmlspecialchars($match['name']) ?>" class="portfolio-match__img" loading="lazy">
                                 <?php endif; ?>

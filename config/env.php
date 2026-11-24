@@ -8,9 +8,26 @@
  *  - на проде — /var/www/u3548935/data/.doctorofcosmetology.prod.php (вне docroot, chmod 600).
  */
 
+if (!function_exists('siteProductionConfigFile')) {
+    /**
+     * Путь прод-конфига (вне docroot, chmod 600). Единственное место, где он задан.
+     */
+    function siteProductionConfigFile(): string
+    {
+        return '/var/www/u3548935/data/.doctorofcosmetology.prod.php';
+    }
+}
+
 if (!function_exists('siteIsProduction')) {
     function siteIsProduction(): bool
     {
+        // CLI: HTTP_HOST и DOCUMENT_ROOT пусты, поэтому хост/докрут ничего не скажут.
+        // Признак прода в CLI — наличие прод-конфига (тот же путь, что в loadExternalConfig()).
+        // Нет файла — проваливаемся в обычную проверку host/docroot (локально это false).
+        if (PHP_SAPI === 'cli' && is_file(siteProductionConfigFile())) {
+            return true;
+        }
+
         $host = $_SERVER['HTTP_HOST'] ?? '';
         $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
 
@@ -48,7 +65,7 @@ if (!function_exists('loadExternalConfig')) {
         $production = siteIsProduction();
 
         $file = $production
-            ? '/var/www/u3548935/data/.doctorofcosmetology.prod.php'
+            ? siteProductionConfigFile()
             : dirname(dirname(__DIR__)) . '/.doctorofcosmetology.local.php';
 
         if (is_file($file)) {

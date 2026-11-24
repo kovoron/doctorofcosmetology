@@ -1,4 +1,8 @@
-<?php include $_SERVER['DOCUMENT_ROOT'] . '/header.php'; ?>
+<?php
+$canonical = '/about/';
+
+include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
+?>
 
 <section class="about-page">
     <!-- Полноэкранное фото с заголовком -->

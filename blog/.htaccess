@@ -1,7 +1,19 @@
 RewriteEngine On
 
-# Только ЧПУ, без HTTPS-редиректа (проверьте сначала это)
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_URI} !^/blog/post\.php [NC]
-RewriteRule ^([0-9]{5})/?$ post.php?id=$1 [L,QSA]
+# Rewrite-правила корневого .htaccess в подкаталоги не наследуются,
+# поэтому канонизация хоста и /blog/index.php продублированы здесь.
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+
+RewriteRule ^index\.php$ /blog/ [R=301,L]
+
+# Guard: реальные файлы и папки не трогаем
+# (иначе сломаются /blog/images/*, /blog/posts/* и сам /blog/post.php)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# ЧПУ статьи: /blog/{id} и /blog/{id}-{slug}
+# Слэш на конце опционален — post.php сам отдаст 301 на canonical-URL.
+# /blog/ продолжает отдаваться index.php через DirectoryIndex.
+RewriteRule ^([0-9]{5})(?:-([^/]+))?/?$ post.php?id=$1&slug=$2 [L,QSA]

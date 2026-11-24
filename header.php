@@ -1,14 +1,48 @@
+<?php
+require_once __DIR__ . '/config/site.php';
+require_once __DIR__ . '/config/urls.php';
+
+$requestUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+
+// 404, черновики, служебные разделы — noindex без canonical
+$isNoindex = !empty($noindex);
+
+// canonical не выводим для noindex и для прямых запросов post.php:
+// там страница закрывает переход 301 до вывода шапки.
+$canonicalHref = '';
+if (!$isNoindex && stripos($requestUri, 'post.php') === false) {
+    if (!isset($canonical) || !is_string($canonical) || trim($canonical) === '') {
+        error_log('header.php: $canonical не задан для ' . $requestUri . ' — использую requestPath()');
+        $canonical = requestPath();
+    }
+    $canonicalHref = absoluteUrl($canonical);
+}
+
+$descriptionText = '';
+if (isset($pageDescription) && is_string($pageDescription)) {
+    $descriptionText = trim($pageDescription);
+}
+?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($pageTitle) ? $pageTitle : 'Ксения Якшигулова — врач-косметолог, дерматовенеролог'; ?></title>    
+    <title><?php echo isset($pageTitle) ? $pageTitle : 'Ксения Якшигулова — врач-косметолог, дерматовенеролог'; ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
     <link rel="manifest" href="/site.webmanifest">
+<?php if ($canonicalHref !== ''): ?>
+    <link rel="canonical" href="<?= htmlspecialchars($canonicalHref, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
+<?php if ($isNoindex): ?>
+    <meta name="robots" content="noindex, follow">
+<?php endif; ?>
+<?php if ($descriptionText !== ''): ?>
+    <meta name="description" content="<?= htmlspecialchars($descriptionText, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
 </head>
 <body>
 <header class="header" id="header">

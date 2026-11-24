@@ -1,30 +1,57 @@
 <?php
+require_once __DIR__ . '/../config/urls.php';
 
+// ID кейса из URL (например, /portfolio/0003 → 0003)
+$caseId = isset($_GET['id']) && is_string($_GET['id']) ? $_GET['id'] : '';
+$caseData = null;
 
+// Валидация id: только 1–5 цифр; имя файла собирается строго по шаблону portfolio{id}.json
+if (preg_match('/^[0-9]{1,5}$/', $caseId)) {
+    $caseFile = __DIR__ . '/cases/portfolio' . $caseId . '.json';
+    if (is_file($caseFile)) {
+        $rawJson = file_get_contents($caseFile);
+        $decoded = is_string($rawJson) ? json_decode($rawJson, true) : null;
+        if (is_array($decoded)) {
+            $caseData = $decoded;
+        }
+    }
+}
 
-// Получаем ID из URL (например, /portfolio/0003 → 0003)
-$caseId = $_GET['id'] ?? '';
-$caseFile = __DIR__ . '/cases/portfolio' . $caseId . '.json';
+$caseFound = $caseData !== null;
+$imagesDir = '/portfolio/images/';
+$canonical = $caseFound ? '/portfolio/' . $caseId . '/' : '';
 
-// Если файла нет → 404
-if (!file_exists($caseFile)) {
-    header('HTTP/1.1 404 Not Found');
-    echo '<div class="container" style="padding:150px 0;text-align:center;">
-            <h1>Кейс не найден</h1>
-            <a href="/portfolio/" style="color:#8B7355;text-decoration:none;">← Вернуться в портфолио</a>
-          </div>';
+// Один канонический URL кейса: /portfolio/{id}/ (покрывает /portfolio/0003 и case.php?id=0003)
+if ($caseFound && requestPath() !== $canonical) {
+    header('Location: ' . absoluteUrl($canonical), true, 301);
     exit;
 }
 
-// Читаем данные
-$caseData = json_decode(file_get_contents($caseFile), true);
-$imagesDir = '/portfolio/images/';
-
 // Динамический заголовок страницы (сработает в header.php)
-$pageTitle = htmlspecialchars($caseData['procedure_name']) . ' — Ксения Якшигулова';
+if ($caseFound) {
+    $pageTitle = htmlspecialchars($caseData['procedure_name'] ?? 'Кейс') . ' — Ксения Якшигулова';
+} else {
+    http_response_code(404);
+    $noindex = true;
+    $pageTitle = 'Кейс не найден — Ксения Якшигулова';
+}
 
 // Загружаем хедер
 include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
+
+// Несуществующий кейс: единый рендер через header/footer, без canonical
+if (!$caseFound) {
+    ?>
+    <section class="post-page">
+        <div class="container" style="padding:150px 0;text-align:center;">
+            <h1>Кейс не найден</h1>
+            <p><a href="/portfolio/" style="color:#8B7355;text-decoration:none;">← Вернуться в портфолио</a></p>
+        </div>
+    </section>
+    <?php
+    include $_SERVER['DOCUMENT_ROOT'] . '/footer.php';
+    exit;
+}
 ?>
 
 <section class="portfolio-case-page">
@@ -34,7 +61,7 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
         <header class="case-header">
             <h1 class="case-title"><?= htmlspecialchars($caseData['procedure_name']) ?></h1>
             <div class="case-tags">
-                <?php foreach ($caseData['tags'] as $tag): ?>
+                <?php foreach (($caseData['tags'] ?? []) as $tag): ?>
                     <span class="case-tag"><?= htmlspecialchars($tag) ?></span>
                 <?php endforeach; ?>
             </div>
@@ -43,17 +70,17 @@ include $_SERVER['DOCUMENT_ROOT'] . '/header.php';
         <div class="case-images">
             <div class="case-image-card">
                 <span class="case-label">ДО</span>
-                <img src="<?= htmlspecialchars($imagesDir . $caseData['images']['before']) ?>" alt="До процедуры" loading="lazy">
+                <img src="<?= htmlspecialchars($imagesDir . ($caseData['images']['before'] ?? '')) ?>" alt="До процедуры" loading="lazy">
             </div>
             <div class="case-image-card">
                 <span class="case-label case-label--after">ПОСЛЕ</span>
-                <img src="<?= htmlspecialchars($imagesDir . $caseData['images']['after']) ?>" alt="После процедуры" loading="lazy">
+                <img src="<?= htmlspecialchars($imagesDir . ($caseData['images']['after'] ?? '')) ?>" alt="После процедуры" loading="lazy">
             </div>
         </div>
 
         <div class="case-description">
             <h2>Описание процедуры</h2>
-            <p><?= nl2br(htmlspecialchars($caseData['description'])) ?></p>
+            <p><?= nl2br(htmlspecialchars($caseData['description'] ?? '')) ?></p>
         </div>
 
         <div class="case-cta">

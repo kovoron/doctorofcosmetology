@@ -8,22 +8,78 @@
 #
 # Деплой: git push prod main
 # ============================================================
+#
+# Пути и PHP можно переопределить переменными окружения — это нужно
+# для sandbox-теста хука (см. deploy/DEPLOY.md):
+#   SITE=/tmp/site BARE=/tmp/repo.git BACKUP_DIR=/tmp/backups \
+#   PHP_BIN=/tmp/fake-php ./post-receive
 set -e
 
-SITE=/var/www/u3548935/data/www/doctorofcosmetology.ru
-BARE=/var/www/u3548935/data/repo/doctorofcosmetology.git
-BACKUP_DIR=/var/www/u3548935/data/backups/deploy
-BRANCH=main
+SITE=${SITE:-/var/www/u3548935/data/www/doctorofcosmetology.ru}
+BARE=${BARE:-/var/www/u3548935/data/repo/doctorofcosmetology.git}
+BACKUP_DIR=${BACKUP_DIR:-/var/www/u3548935/data/backups/deploy}
+BRANCH=${BRANCH:-main}
+PHP_BIN=${PHP_BIN:-$(command -v php || true)}
+
+ZERO=0000000000000000000000000000000000000000
+
+log() {
+    echo "$(date '+%F %T') $*" >> "$BACKUP_DIR/deploy.log"
+}
 
 mkdir -p "$BACKUP_DIR"
 
-# Бэкап текущего кода (ротация 20 версий)
+# Ссылки приходят в stdin хука: "<old-sha> <new-sha> <refname>".
+# OLD/NEW читаем ДО checkout: после обновления ссылки rev-parse вернул бы
+# уже новый SHA и диапазон OLD..NEW оказался бы пустым.
+OLD=""
+NEW=""
+
+while read -r old new ref; do
+    if [ "$ref" = "refs/heads/$BRANCH" ]; then
+        OLD=$old
+        NEW=$new
+    fi
+done
+
+# Пуш другой ветки — деплой не нужен.
+if [ -z "$NEW" ]; then
+    exit 0
+fi
+
+# Бэкап текущего кода (ротация 20 версий) — один раз на деплой.
 tar -czf "$BACKUP_DIR/code-$(date +%Y%m%d-%H%M%S).tar.gz" -C "$SITE" --exclude='.git' . 2>/dev/null || true
-ls -1t "$BACKUP_DIR"/code-*.tar.gz 2>/dev/null | tail -n +21 | xargs -r rm -f
+ls -1t "$BACKUP_DIR"/code-*.tar.gz 2>/dev/null | tail -n +21 | xargs rm -f 2>/dev/null || true
 
 # Только отслеживаемые файлы: untracked-контент (q/, portfolio/, uslugi.json) не трогается
 git --work-tree="$SITE" --git-dir="$BARE" checkout -f "$BRANCH"
 
-REV=$(git --git-dir="$BARE" rev-parse --short "$BRANCH")
-echo "$(date '+%F %T') deployed $REV" >> "$BACKUP_DIR/deploy.log"
+REV=$(git --git-dir="$BARE" rev-parse --short "$NEW")
+
+# ---------------------------------------------------------------
+# IndexNow: пинг Bing/Яндекса об изменениях (см. deploy/DEPLOY.md).
+# Никогда не ломает деплой: код выхода игнорируется, вызов ограничен
+# timeout 60 (у CLI до 3 попыток с паузой ≈ 31,5 с — берём с запасом).
+# Решение «отправлять или нет» принимает CLI/конфиг: env через git push
+# не передать, поэтому INDEXNOW_ENABLED в хуке не проверяем.
+# ---------------------------------------------------------------
+if [ -z "$PHP_BIN" ] || [ ! -x "$PHP_BIN" ]; then
+    log "indexnow skipped: php binary not found (PHP_BIN='$PHP_BIN') $REV"
+elif [ "$OLD" = "$ZERO" ] || ! git --git-dir="$BARE" cat-file -e "$OLD^{commit}" 2>/dev/null; then
+    log "indexnow: no previous revision, sending all urls $REV"
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 60 "$PHP_BIN" "$SITE/bin/indexnow.php" --all --quiet || true
+    else
+        "$PHP_BIN" "$SITE/bin/indexnow.php" --all --quiet || true
+    fi
+else
+    log "indexnow: changed $OLD..$NEW $REV"
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 60 "$PHP_BIN" "$SITE/bin/indexnow.php" --changed="$OLD..$NEW" --git="$BARE" --quiet || true
+    else
+        "$PHP_BIN" "$SITE/bin/indexnow.php" --changed="$OLD..$NEW" --git="$BARE" --quiet || true
+    fi
+fi
+
+log "deployed $REV"
 echo "DEPLOY_OK $REV"
