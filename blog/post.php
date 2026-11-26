@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/urls.php';
+require_once __DIR__ . '/../lib/post-content.php';
 
 $postId = isset($_GET['id']) && is_string($_GET['id']) ? $_GET['id'] : '';
 $requestedSlug = isset($_GET['slug']) && is_string($_GET['slug']) ? $_GET['slug'] : '';
@@ -243,6 +244,9 @@ if ($img2 || $img3) {
     $articleContent = implode('</p>', $paragraphs);
     $articleContent = str_replace(['<p></p>', '<p> </p>'], '', $articleContent);
 }
+
+// Таблицы из JSON — в горизонтально скроллируемую обёртку (TASK.md, раздел 6)
+$articleContent = wrapPostTables($articleContent);
 
 // =========================================
 // ПОДБОР ПОХОЖИХ СТАТЕЙ ПО ТЕГАМ
